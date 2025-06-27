@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de notificaciones push enviadas
@@ -28,7 +28,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const [result] = await query(query, [
         notificacion_push_id, titulo, mensaje, datos, estado, mensaje_error, cita_id
       ]);
 
@@ -67,7 +67,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const [rows] = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener notificación: ${error.message}`);
@@ -161,8 +161,8 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const [rows] = await query(query, [...params, limite, offset]);
+      const [countResult] = await query(countQuery, params);
 
       return {
         notificaciones: rows,
@@ -208,7 +208,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const [result] = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Notificación no encontrada');
@@ -229,7 +229,7 @@ class NotificacionPushEnviada {
     const query = 'DELETE FROM notificaciones_push_enviadas WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const [result] = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar notificación: ${error.message}`);
@@ -277,7 +277,7 @@ class NotificacionPushEnviada {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const [rows] = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -319,7 +319,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [usuario_id]);
+      const [rows] = await query(query, [usuario_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por usuario: ${error.message}`);
@@ -359,7 +359,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cita_id]);
+      const [rows] = await query(query, [cita_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por cita: ${error.message}`);
@@ -399,7 +399,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [estado]);
+      const [rows] = await query(query, [estado]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por estado: ${error.message}`);
@@ -439,7 +439,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [plataforma]);
+      const [rows] = await query(query, [plataforma]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por plataforma: ${error.message}`);
@@ -511,7 +511,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -537,7 +537,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por plataforma: ${error.message}`);
@@ -567,7 +567,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por usuario: ${error.message}`);
@@ -595,7 +595,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [dias]);
+      const [rows] = await query(query, [dias]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por día: ${error.message}`);
@@ -630,7 +630,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [result] = await pool.execute(query, [dias]);
+      const [result] = await query(query, [dias]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al limpiar notificaciones antiguas: ${error.message}`);
@@ -698,7 +698,7 @@ class NotificacionPushEnviada {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar notificaciones: ${error.message}`);

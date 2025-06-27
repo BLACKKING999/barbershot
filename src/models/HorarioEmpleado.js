@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de horarios de empleados
@@ -29,16 +29,15 @@ class HorarioEmpleado {
       throw new Error('El día de la semana debe estar entre 1 y 7');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO horarios_empleados (empleado_id, dia_semana, hora_inicio, hora_fin, es_descanso)
       VALUES (?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         empleado_id, dia_semana, hora_inicio, hora_fin, es_descanso
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear horario: ${error.message}`);
@@ -51,7 +50,7 @@ class HorarioEmpleado {
    * @returns {Promise<Object|null>} Horario encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -62,7 +61,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener horario: ${error.message}`);
@@ -106,7 +105,7 @@ class HorarioEmpleado {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -125,8 +124,8 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         horarios: rows,
@@ -172,14 +171,14 @@ class HorarioEmpleado {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE horarios_empleados 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Horario no encontrado');
@@ -197,10 +196,10 @@ class HorarioEmpleado {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM horarios_empleados WHERE id = ?';
+    const sql = 'DELETE FROM horarios_empleados WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar horario: ${error.message}`);
@@ -216,7 +215,7 @@ class HorarioEmpleado {
   static async obtenerPorEmpleado(empleado_id, opciones = {}) {
     const { orden = 'dia_semana ASC, hora_inicio ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -228,7 +227,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener horarios por empleado: ${error.message}`);
@@ -252,7 +251,7 @@ class HorarioEmpleado {
       params.push(es_descanso);
     }
 
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -264,7 +263,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener horarios por día: ${error.message}`);
@@ -292,7 +291,7 @@ class HorarioEmpleado {
       params.push(dia_semana);
     }
 
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -304,7 +303,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener descansos: ${error.message}`);
@@ -320,7 +319,7 @@ class HorarioEmpleado {
    * @returns {Promise<boolean>} Empleado disponible
    */
   static async verificarDisponibilidad(empleado_id, dia_semana, hora_inicio, hora_fin) {
-    const query = `
+    const sql = `
       SELECT COUNT(*) as total
       FROM horarios_empleados
       WHERE empleado_id = ? 
@@ -334,7 +333,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         empleado_id, dia_semana, hora_inicio, hora_inicio, hora_fin, hora_fin, hora_inicio, hora_fin
       ]);
       return rows[0].total > 0;
@@ -349,7 +348,7 @@ class HorarioEmpleado {
    * @returns {Promise<Array>} Horarios semanales
    */
   static async obtenerHorarioSemanal(empleado_id) {
-    const query = `
+    const sql = `
       SELECT he.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -361,7 +360,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       
       // Organizar por días de la semana
       const horarioSemanal = {
@@ -392,7 +391,7 @@ class HorarioEmpleado {
    * @returns {Promise<Array>} Empleados disponibles
    */
   static async obtenerEmpleadosDisponibles(dia_semana, hora_inicio, hora_fin) {
-    const query = `
+    const sql = `
       SELECT DISTINCT e.id,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -408,7 +407,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [dia_semana, hora_inicio, hora_fin]);
+      const rows = await query(sql, [dia_semana, hora_inicio, hora_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados disponibles: ${error.message}`);
@@ -420,7 +419,7 @@ class HorarioEmpleado {
    * @returns {Promise<Object>} Estadísticas de horarios
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_horarios,
         COUNT(DISTINCT empleado_id) as empleados_con_horario,
@@ -438,7 +437,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -451,7 +450,7 @@ class HorarioEmpleado {
    * @returns {Promise<Object>} Estadísticas del empleado
    */
   static async obtenerEstadisticasEmpleado(empleado_id) {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_horarios,
         COUNT(CASE WHEN es_descanso = 1 THEN 1 END) as total_descansos,
@@ -463,7 +462,7 @@ class HorarioEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del empleado: ${error.message}`);
@@ -503,10 +502,10 @@ class HorarioEmpleado {
    * @returns {Promise<number>} Cantidad de horarios eliminados
    */
   static async eliminarHorariosEmpleado(empleado_id) {
-    const query = 'DELETE FROM horarios_empleados WHERE empleado_id = ?';
+    const sql = 'DELETE FROM horarios_empleados WHERE empleado_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id]);
+      const result = await query(sql, [empleado_id]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al eliminar horarios del empleado: ${error.message}`);

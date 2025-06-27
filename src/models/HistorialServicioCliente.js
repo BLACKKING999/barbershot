@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión del historial de servicios de clientes
@@ -23,18 +23,17 @@ class HistorialServicioCliente {
       fotos_despues = null
     } = historial;
 
-    const query = `
+    const sql = `
       INSERT INTO historial_servicios_cliente 
       (cliente_id, servicio_id, empleado_id, fecha, detalles, resultado, productos_usados, fotos_antes, fotos_despues)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         cliente_id, servicio_id, empleado_id, fecha, detalles, resultado, 
         productos_usados, fotos_antes, fotos_despues
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear historial: ${error.message}`);
@@ -47,7 +46,7 @@ class HistorialServicioCliente {
    * @returns {Promise<Object|null>} Historial encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -65,7 +64,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener historial: ${error.message}`);
@@ -121,7 +120,7 @@ class HistorialServicioCliente {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -147,8 +146,8 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         historiales: rows,
@@ -187,14 +186,14 @@ class HistorialServicioCliente {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE historial_servicios_cliente 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Historial no encontrado');
@@ -212,10 +211,10 @@ class HistorialServicioCliente {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM historial_servicios_cliente WHERE id = ?';
+    const sql = 'DELETE FROM historial_servicios_cliente WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar historial: ${error.message}`);
@@ -231,7 +230,7 @@ class HistorialServicioCliente {
   static async obtenerPorCliente(cliente_id, opciones = {}) {
     const { orden = 'fecha DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -250,7 +249,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id]);
+      const rows = await query(sql, [cliente_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener historial por cliente: ${error.message}`);
@@ -266,7 +265,7 @@ class HistorialServicioCliente {
   static async obtenerPorEmpleado(empleado_id, opciones = {}) {
     const { orden = 'fecha DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -285,7 +284,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener historial por empleado: ${error.message}`);
@@ -301,7 +300,7 @@ class HistorialServicioCliente {
   static async obtenerPorServicio(servicio_id, opciones = {}) {
     const { orden = 'fecha DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -320,7 +319,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [servicio_id]);
+      const rows = await query(sql, [servicio_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener historial por servicio: ${error.message}`);
@@ -337,7 +336,7 @@ class HistorialServicioCliente {
   static async obtenerPorRangoFechas(fecha_inicio, fecha_fin, opciones = {}) {
     const { orden = 'fecha DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -356,7 +355,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener historial por rango de fechas: ${error.message}`);
@@ -372,7 +371,7 @@ class HistorialServicioCliente {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 50 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT hsc.*,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -399,7 +398,7 @@ class HistorialServicioCliente {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -431,7 +430,7 @@ class HistorialServicioCliente {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_registros,
         COUNT(DISTINCT cliente_id) as clientes_unicos,
@@ -447,7 +446,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -460,7 +459,7 @@ class HistorialServicioCliente {
    * @returns {Promise<Object>} Estadísticas del cliente
    */
   static async obtenerEstadisticasCliente(cliente_id) {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_servicios,
         COUNT(DISTINCT servicio_id) as servicios_diferentes,
@@ -477,7 +476,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id]);
+      const rows = await query(sql, [cliente_id]);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del cliente: ${error.message}`);
@@ -490,7 +489,7 @@ class HistorialServicioCliente {
    * @returns {Promise<Array>} Servicios más realizados
    */
   static async obtenerServiciosMasRealizados(limite = 10) {
-    const query = `
+    const sql = `
       SELECT s.id,
              s.nombre as servicio_nombre,
              s.precio as servicio_precio,
@@ -504,7 +503,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener servicios más realizados: ${error.message}`);
@@ -517,7 +516,7 @@ class HistorialServicioCliente {
    * @returns {Promise<Array>} Empleados más activos
    */
   static async obtenerEmpleadosMasActivos(limite = 10) {
-    const query = `
+    const sql = `
       SELECT e.id,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -532,7 +531,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados más activos: ${error.message}`);
@@ -577,7 +576,7 @@ class HistorialServicioCliente {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT hsc.id, hsc.fecha, hsc.detalles, hsc.resultado, hsc.productos_usados,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
              cu.email as cliente_email,
@@ -596,7 +595,7 @@ class HistorialServicioCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar historial: ${error.message}`);

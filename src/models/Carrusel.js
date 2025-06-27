@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de carruseles
@@ -27,7 +27,7 @@ class Carrusel {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const [result] = await query(query, [
         nombre, descripcion, velocidad_transicion, tipo_transicion, activo, ubicacion, orden
       ]);
 
@@ -54,7 +54,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const [rows] = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener carrusel: ${error.message}`);
@@ -111,8 +111,8 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const [rows] = await query(query, [...params, limite, offset]);
+      const [countResult] = await query(countQuery, params);
 
       return {
         carruseles: rows,
@@ -158,7 +158,7 @@ class Carrusel {
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const [result] = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Carrusel no encontrado');
@@ -179,7 +179,7 @@ class Carrusel {
     const query = 'DELETE FROM carruseles WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const [result] = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar carrusel: ${error.message}`);
@@ -212,7 +212,7 @@ class Carrusel {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [searchTerm, searchTerm, searchTerm, limite]);
+      const [rows] = await query(query, [searchTerm, searchTerm, searchTerm, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar carruseles: ${error.message}`);
@@ -247,7 +247,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener carruseles activos: ${error.message}`);
@@ -283,7 +283,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener carruseles por ubicación: ${error.message}`);
@@ -304,7 +304,7 @@ class Carrusel {
     `;
 
     try {
-      const [result] = await pool.execute(query, [activo ? 1 : 0, id]);
+      const [result] = await query(query, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Carrusel no encontrado');
@@ -348,7 +348,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener elementos del carrusel: ${error.message}`);
@@ -379,7 +379,7 @@ class Carrusel {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const [result] = await query(query, [
         carrusel_id, multimedia_id, orden, titulo_overlay, descripcion_overlay, 
         boton_texto, boton_enlace, activo
       ]);
@@ -411,7 +411,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [carrusel_id, multimedia_id]);
+      const [rows] = await query(query, [carrusel_id, multimedia_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener elemento del carrusel: ${error.message}`);
@@ -449,7 +449,7 @@ class Carrusel {
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const [result] = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Elemento del carrusel no encontrado');
@@ -471,7 +471,7 @@ class Carrusel {
     const query = 'DELETE FROM carrusel_multimedia WHERE carrusel_id = ? AND multimedia_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [carrusel_id, multimedia_id]);
+      const [result] = await query(query, [carrusel_id, multimedia_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar elemento del carrusel: ${error.message}`);
@@ -496,7 +496,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -521,7 +521,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por ubicación: ${error.message}`);
@@ -606,7 +606,7 @@ class Carrusel {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar carruseles: ${error.message}`);

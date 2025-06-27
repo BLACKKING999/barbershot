@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de categorías de servicios
@@ -13,13 +13,13 @@ class CategoriaServicio {
   static async crear(categoria) {
     const { nombre, descripcion } = categoria;
 
-    const query = `
+    const sql = `
       INSERT INTO categorias_servicios (nombre, descripcion)
       VALUES (?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion]);
+      const result = await query(sql, [nombre, descripcion]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear categoría de servicio: ${error.message}`);
@@ -32,7 +32,7 @@ class CategoriaServicio {
    * @returns {Promise<Object|null>} Categoría encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios,
              COUNT(CASE WHEN s.activo = 1 THEN 1 END) as servicios_activos
@@ -43,7 +43,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener categoría: ${error.message}`);
@@ -63,7 +63,7 @@ class CategoriaServicio {
       whereClause = 'HAVING total_servicios > 0';
     }
 
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios,
              COUNT(CASE WHEN s.activo = 1 THEN 1 END) as servicios_activos
@@ -75,7 +75,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       
       if (incluirServicios) {
         // Obtener servicios para cada categoría
@@ -113,14 +113,14 @@ class CategoriaServicio {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE categorias_servicios 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Categoría no encontrada');
@@ -144,10 +144,10 @@ class CategoriaServicio {
       throw new Error('No se puede eliminar una categoría que tiene servicios asociados');
     }
 
-    const query = 'DELETE FROM categorias_servicios WHERE id = ?';
+    const sql = 'DELETE FROM categorias_servicios WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar categoría: ${error.message}`);
@@ -160,7 +160,7 @@ class CategoriaServicio {
    * @returns {Promise<Array>} Categorías encontradas
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios,
              COUNT(CASE WHEN s.activo = 1 THEN 1 END) as servicios_activos
@@ -174,7 +174,7 @@ class CategoriaServicio {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar categorías: ${error.message}`);
@@ -198,7 +198,7 @@ class CategoriaServicio {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT s.*
       FROM servicios s
       WHERE ${whereConditions.join(' AND ')}
@@ -206,7 +206,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener servicios por categoría: ${error.message}`);
@@ -218,7 +218,7 @@ class CategoriaServicio {
    * @returns {Promise<Object>} Estadísticas de categorías
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_categorias,
         COUNT(CASE WHEN total_servicios > 0 THEN 1 END) as categorias_con_servicios,
@@ -234,7 +234,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -247,7 +247,7 @@ class CategoriaServicio {
    * @returns {Promise<Array>} Categorías más populares
    */
   static async obtenerMasPopulares(limite = 10) {
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios,
              COUNT(CASE WHEN s.activo = 1 THEN 1 END) as servicios_activos
@@ -260,7 +260,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías populares: ${error.message}`);
@@ -272,7 +272,7 @@ class CategoriaServicio {
    * @returns {Promise<Array>} Categorías con servicios activos
    */
   static async obtenerConServiciosActivos() {
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios,
              COUNT(CASE WHEN s.activo = 1 THEN 1 END) as servicios_activos
@@ -284,7 +284,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías con servicios activos: ${error.message}`);
@@ -298,16 +298,16 @@ class CategoriaServicio {
    * @returns {Promise<boolean>} Existe la categoría
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM categorias_servicios WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM categorias_servicios WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -319,7 +319,7 @@ class CategoriaServicio {
    * @returns {Promise<Array>} Categorías vacías
    */
   static async obtenerVacias() {
-    const query = `
+    const sql = `
       SELECT cs.*, 
              COUNT(s.id) as total_servicios
       FROM categorias_servicios cs
@@ -330,7 +330,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías vacías: ${error.message}`);
@@ -342,7 +342,7 @@ class CategoriaServicio {
    * @returns {Promise<Array>} Resumen de categorías
    */
   static async obtenerResumen() {
-    const query = `
+    const sql = `
       SELECT 
         cs.id,
         cs.nombre,
@@ -358,7 +358,7 @@ class CategoriaServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener resumen: ${error.message}`);

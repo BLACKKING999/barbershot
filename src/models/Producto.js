@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de productos
@@ -25,7 +25,7 @@ class Producto {
       activo = 1
     } = producto;
 
-    const query = `
+    const sql = `
       INSERT INTO productos (
         categoria_id, nombre, descripcion, marca, precio_compra, 
         precio_venta, stock, stock_minimo, codigo_barras, imagen, activo
@@ -33,7 +33,7 @@ class Producto {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         categoria_id, nombre, descripcion, marca, precio_compra,
         precio_venta, stock, stock_minimo, codigo_barras, imagen, activo
       ]);
@@ -50,7 +50,7 @@ class Producto {
    * @returns {Promise<Object|null>} Producto encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT p.*, cp.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
@@ -58,7 +58,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener producto: ${error.message}`);
@@ -71,7 +71,7 @@ class Producto {
    * @returns {Promise<Object>} Lista de productos y metadatos
    */
   static async obtenerTodos(opciones = {}) {
-    const {
+    let {
       pagina = 1,
       limite = 10,
       activo = null,
@@ -81,54 +81,66 @@ class Producto {
       direccion = 'ASC'
     } = opciones;
 
+    // Validar columnas y dirección
+    const columnasValidas = [
+      'id', 'categoria_id', 'nombre', 'descripcion', 'marca', 'precio_compra',
+      'precio_venta', 'stock', 'stock_minimo', 'codigo_barras', 'imagen', 'activo', 'created_at', 'updated_at'
+    ];
+    if (!columnasValidas.includes(orden)) orden = 'nombre';
+    direccion = (direccion && direccion.toUpperCase() === 'DESC') ? 'DESC' : 'ASC';
+
+    // Asegurar que sean números válidos
+    const pageNum = parseInt(pagina) > 0 ? parseInt(pagina) : 1;
+    const limitNum = parseInt(limite) > 0 ? parseInt(limite) : 10;
+    const offset = (pageNum - 1) * limitNum;
+
     let whereConditions = [];
     let params = [];
 
-    if (activo !== null) {
-      whereConditions.push('p.activo = ?');
-      params.push(activo);
+    if (activo !== null && activo !== '') {
+      whereConditions.push('productos.activo = ?');
+      params.push(Number(activo));
     }
 
-    if (categoria_id) {
-      whereConditions.push('p.categoria_id = ?');
-      params.push(categoria_id);
+    if (categoria_id !== null && categoria_id !== '') {
+      whereConditions.push('productos.categoria_id = ?');
+      params.push(Number(categoria_id));
     }
 
-    if (busqueda) {
-      whereConditions.push('(p.nombre LIKE ? OR p.descripcion LIKE ? OR p.marca LIKE ? OR p.codigo_barras LIKE ?)');
+    if (busqueda && busqueda.trim() !== '') {
+      whereConditions.push('(productos.nombre LIKE ? OR productos.descripcion LIKE ? OR productos.marca LIKE ? OR productos.codigo_barras LIKE ?)');
       const busquedaParam = `%${busqueda}%`;
       params.push(busquedaParam, busquedaParam, busquedaParam, busquedaParam);
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const offset = (pagina - 1) * limite;
-    const query = `
-      SELECT p.*, cp.nombre as categoria_nombre
-      FROM productos p
-      LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
+    const sql = `
+      SELECT productos.id, productos.categoria_id, productos.nombre, productos.descripcion, productos.marca, productos.precio_compra, productos.precio_venta, productos.stock, productos.stock_minimo, productos.codigo_barras, productos.imagen, productos.activo, productos.created_at, productos.updated_at, categorias_productos.nombre as categoria_nombre
+      FROM productos
+      LEFT JOIN categorias_productos ON productos.categoria_id = categorias_productos.id
       ${whereClause}
-      ORDER BY p.${orden} ${direccion}
+      ORDER BY productos.${orden} ${direccion}
       LIMIT ? OFFSET ?
     `;
 
-    const countQuery = `
+    const countSql = `
       SELECT COUNT(*) as total
-      FROM productos p
+      FROM productos
       ${whereClause}
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limitNum, offset]);
+      const countResult = await query(countSql, params);
 
       return {
         productos: rows,
         paginacion: {
-          pagina,
-          limite,
+          pagina: pageNum,
+          limite: limitNum,
           total: countResult[0].total,
-          totalPaginas: Math.ceil(countResult[0].total / limite)
+          totalPaginas: Math.ceil(countResult[0].total / limitNum)
         }
       };
     } catch (error) {
@@ -163,14 +175,14 @@ class Producto {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE productos 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Producto no encontrado');
@@ -188,10 +200,10 @@ class Producto {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'UPDATE productos SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    const sql = 'UPDATE productos SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar producto: ${error.message}`);
@@ -205,7 +217,7 @@ class Producto {
    * @returns {Promise<Array>} Productos encontrados
    */
   static async buscar(termino, limite = 10) {
-    const query = `
+    const sql = `
       SELECT p.*, cp.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
@@ -218,7 +230,7 @@ class Producto {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam, busquedaParam, limite]);
+      const rows = await query(sql, [busquedaParam, busquedaParam, busquedaParam, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar productos: ${error.message}`);
@@ -234,7 +246,7 @@ class Producto {
   static async obtenerPorCategoria(categoria_id, opciones = {}) {
     const { activo = 1, orden = 'nombre' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT p.*, cp.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
@@ -243,7 +255,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [categoria_id, activo]);
+      const rows = await query(sql, [categoria_id, activo]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos por categoría: ${error.message}`);
@@ -255,8 +267,8 @@ class Producto {
    * @param {number} limite - Límite de resultados
    * @returns {Promise<Array>} Productos con stock bajo
    */
-  static async obtenerStockBajo(limite = 20) {
-    const query = `
+  static async obtenerConStockBajo(limite = 20) {
+    const sql = `
       SELECT p.*, cp.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
@@ -266,7 +278,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos con stock bajo: ${error.message}`);
@@ -277,17 +289,20 @@ class Producto {
    * Actualizar stock de producto
    * @param {number} id - ID del producto
    * @param {number} cantidad - Cantidad a sumar/restar (negativo para restar)
+   * @param {string} tipo - Tipo de operación ('suma' o 'resta')
    * @returns {Promise<Object>} Producto actualizado
    */
-  static async actualizarStock(id, cantidad) {
-    const query = `
+  static async actualizarStock(id, cantidad, tipo = 'suma') {
+    const cantidadFinal = tipo === 'resta' ? -cantidad : cantidad;
+    
+    const sql = `
       UPDATE productos 
       SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND activo = 1
     `;
 
     try {
-      const [result] = await pool.execute(query, [cantidad, id]);
+      const result = await query(sql, [cantidadFinal, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Producto no encontrado o inactivo');
@@ -304,7 +319,7 @@ class Producto {
    * @returns {Promise<Object>} Estadísticas generales
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_productos,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as productos_activos,
@@ -316,7 +331,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -330,7 +345,7 @@ class Producto {
    * @returns {Promise<Array>} Productos más vendidos
    */
   static async obtenerMasVendidos(limite = 10, periodo = 30) {
-    const query = `
+    const sql = `
       SELECT 
         p.id,
         p.nombre,
@@ -349,7 +364,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [periodo, limite]);
+      const rows = await query(sql, [periodo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos más vendidos: ${error.message}`);
@@ -378,7 +393,7 @@ class Producto {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT 
         vp.id as venta_id,
         vp.fecha_venta,
@@ -399,7 +414,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener historial de ventas: ${error.message}`);
@@ -413,10 +428,10 @@ class Producto {
    * @returns {Promise<boolean>} Disponibilidad
    */
   static async verificarDisponibilidad(producto_id, cantidad) {
-    const query = 'SELECT stock FROM productos WHERE id = ? AND activo = 1';
+    const sql = 'SELECT stock FROM productos WHERE id = ? AND activo = 1';
 
     try {
-      const [rows] = await pool.execute(query, [producto_id]);
+      const rows = await query(sql, [producto_id]);
       
       if (rows.length === 0) {
         return false;
@@ -434,7 +449,7 @@ class Producto {
    * @returns {Promise<Object|null>} Producto encontrado
    */
   static async obtenerPorCodigoBarras(codigo_barras) {
-    const query = `
+    const sql = `
       SELECT p.*, cp.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos cp ON p.categoria_id = cp.id
@@ -442,7 +457,7 @@ class Producto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [codigo_barras]);
+      const rows = await query(sql, [codigo_barras]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener producto por código de barras: ${error.message}`);

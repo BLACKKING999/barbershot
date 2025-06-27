@@ -1,5 +1,3 @@
-const { pool } = require('../config/database');
-
 // Importar modelos
 const Usuario = require('./Usuario');
 const Empleado = require('./Empleado');
@@ -23,6 +21,5 @@ module.exports = {
   AusenciaEmpleado,
   Especialidad,
   Servicio,
-  Rol,
-  pool
+  Rol
 };

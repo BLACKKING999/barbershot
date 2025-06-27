@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de estados de citas
@@ -13,13 +13,13 @@ class EstadoCita {
   static async crear(estadoCita) {
     const { nombre, descripcion, color } = estadoCita;
 
-    const query = `
+    const sql = `
       INSERT INTO estados_citas (nombre, descripcion, color)
       VALUES (?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion, color]);
+      const result = await query(sql, [nombre, descripcion, color]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear estado de cita: ${error.message}`);
@@ -32,7 +32,7 @@ class EstadoCita {
    * @returns {Promise<Object|null>} Estado de cita encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT ec.*, 
              COUNT(c.id) as total_citas,
              COUNT(CASE WHEN c.fecha_hora_inicio >= NOW() THEN 1 END) as citas_futuras,
@@ -44,7 +44,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener estado de cita: ${error.message}`);
@@ -59,7 +59,7 @@ class EstadoCita {
   static async obtenerTodos(opciones = {}) {
     const { incluirEstadisticas = false } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ec.*, 
              COUNT(c.id) as total_citas,
              COUNT(CASE WHEN c.fecha_hora_inicio >= NOW() THEN 1 END) as citas_futuras,
@@ -71,7 +71,18 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
+      
+      if (incluirEstadisticas) {
+        // Obtener estadísticas para cada estado
+        for (let estado of rows) {
+          estado.estadisticas = await this.obtenerEstadisticas({
+            fecha_inicio: null,
+            fecha_fin: null
+          });
+        }
+      }
+
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados de cita: ${error.message}`);
@@ -101,14 +112,14 @@ class EstadoCita {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE estados_citas 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Estado de cita no encontrado');
@@ -132,10 +143,10 @@ class EstadoCita {
       throw new Error('No se puede eliminar un estado de cita que tiene citas asociadas');
     }
 
-    const query = 'DELETE FROM estados_citas WHERE id = ?';
+    const sql = 'DELETE FROM estados_citas WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar estado de cita: ${error.message}`);
@@ -148,7 +159,7 @@ class EstadoCita {
    * @returns {Promise<Array>} Estados de cita encontrados
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT ec.*, 
              COUNT(c.id) as total_citas
       FROM estados_citas ec
@@ -161,7 +172,7 @@ class EstadoCita {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar estados de cita: ${error.message}`);
@@ -190,7 +201,7 @@ class EstadoCita {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT c.*, 
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
@@ -209,7 +220,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener citas por estado: ${error.message}`);
@@ -239,7 +250,7 @@ class EstadoCita {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         ec.id,
         ec.nombre,
@@ -257,7 +268,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -271,7 +282,7 @@ class EstadoCita {
    * @returns {Promise<Array>} Estados de cita por período
    */
   static async obtenerPorPeriodo(fecha_inicio, fecha_fin) {
-    const query = `
+    const sql = `
       SELECT 
         ec.id,
         ec.nombre,
@@ -288,7 +299,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados por período: ${error.message}`);
@@ -302,16 +313,16 @@ class EstadoCita {
    * @returns {Promise<boolean>} Existe el estado de cita
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM estados_citas WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM estados_citas WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -323,7 +334,7 @@ class EstadoCita {
    * @returns {Promise<Array>} Estados de cita sin uso
    */
   static async obtenerSinUso() {
-    const query = `
+    const sql = `
       SELECT ec.*, 
              COUNT(c.id) as total_citas
       FROM estados_citas ec
@@ -334,7 +345,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados sin uso: ${error.message}`);
@@ -347,7 +358,7 @@ class EstadoCita {
    * @returns {Promise<Object|null>} Estado de cita encontrado
    */
   static async obtenerPorNombre(nombre) {
-    const query = `
+    const sql = `
       SELECT ec.*, 
              COUNT(c.id) as total_citas
       FROM estados_citas ec
@@ -357,7 +368,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [nombre]);
+      const rows = await query(sql, [nombre]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener estado por nombre: ${error.message}`);
@@ -369,7 +380,7 @@ class EstadoCita {
    * @returns {Promise<Array>} Resumen de estados de cita
    */
   static async obtenerResumen() {
-    const query = `
+    const sql = `
       SELECT 
         ec.id,
         ec.nombre,
@@ -387,7 +398,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener resumen: ${error.message}`);
@@ -430,7 +441,7 @@ class EstadoCita {
    * @returns {Promise<Array>} Estados de cita con información para calendario
    */
   static async obtenerParaCalendario() {
-    const query = `
+    const sql = `
       SELECT 
         ec.id,
         ec.nombre,
@@ -444,7 +455,7 @@ class EstadoCita {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados para calendario: ${error.message}`);

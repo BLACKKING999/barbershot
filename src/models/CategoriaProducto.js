@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de categorías de productos
@@ -13,13 +13,13 @@ class CategoriaProducto {
   static async crear(categoria) {
     const { nombre, descripcion } = categoria;
 
-    const query = `
+    const sql = `
       INSERT INTO categorias_productos (nombre, descripcion)
       VALUES (?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion]);
+      const result = await query(sql, [nombre, descripcion]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear categoría de producto: ${error.message}`);
@@ -32,7 +32,7 @@ class CategoriaProducto {
    * @returns {Promise<Object|null>} Categoría encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.activo = 1 THEN 1 END) as productos_activos,
@@ -45,7 +45,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener categoría: ${error.message}`);
@@ -65,7 +65,7 @@ class CategoriaProducto {
       whereClause = 'HAVING total_productos > 0';
     }
 
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.activo = 1 THEN 1 END) as productos_activos,
@@ -79,7 +79,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       
       if (incluirProductos) {
         // Obtener productos para cada categoría
@@ -117,14 +117,14 @@ class CategoriaProducto {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE categorias_productos 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Categoría no encontrada');
@@ -148,10 +148,10 @@ class CategoriaProducto {
       throw new Error('No se puede eliminar una categoría que tiene productos asociados');
     }
 
-    const query = 'DELETE FROM categorias_productos WHERE id = ?';
+    const sql = 'DELETE FROM categorias_productos WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar categoría: ${error.message}`);
@@ -164,7 +164,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías encontradas
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.activo = 1 THEN 1 END) as productos_activos
@@ -178,7 +178,7 @@ class CategoriaProducto {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar categorías: ${error.message}`);
@@ -208,7 +208,7 @@ class CategoriaProducto {
       params.push(limite);
     }
 
-    const query = `
+    const sql = `
       SELECT p.*
       FROM productos p
       WHERE ${whereConditions.join(' AND ')}
@@ -217,7 +217,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos por categoría: ${error.message}`);
@@ -229,7 +229,7 @@ class CategoriaProducto {
    * @returns {Promise<Object>} Estadísticas de categorías
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_categorias,
         COUNT(CASE WHEN total_productos > 0 THEN 1 END) as categorias_con_productos,
@@ -250,7 +250,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -263,7 +263,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías más populares
    */
   static async obtenerMasPopulares(limite = 10) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.activo = 1 THEN 1 END) as productos_activos,
@@ -278,7 +278,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías populares: ${error.message}`);
@@ -290,7 +290,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías con productos activos
    */
   static async obtenerConProductosActivos() {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.activo = 1 THEN 1 END) as productos_activos,
@@ -304,7 +304,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías con productos activos: ${error.message}`);
@@ -317,7 +317,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías con stock bajo
    */
   static async obtenerConStockBajo(limite = 10) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              COUNT(CASE WHEN p.stock <= p.stock_minimo THEN 1 END) as productos_stock_bajo,
@@ -331,7 +331,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías con stock bajo: ${error.message}`);
@@ -345,16 +345,16 @@ class CategoriaProducto {
    * @returns {Promise<boolean>} Existe la categoría
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM categorias_productos WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM categorias_productos WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -366,7 +366,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías vacías
    */
   static async obtenerVacias() {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos
       FROM categorias_productos cp
@@ -377,7 +377,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías vacías: ${error.message}`);
@@ -389,7 +389,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Resumen de categorías
    */
   static async obtenerResumen() {
-    const query = `
+    const sql = `
       SELECT 
         cp.id,
         cp.nombre,
@@ -407,7 +407,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener resumen: ${error.message}`);
@@ -421,7 +421,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías en el rango de precios
    */
   static async obtenerPorRangoPrecios(precioMin, precioMax) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              AVG(p.precio_venta) as precio_promedio
@@ -433,7 +433,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [precioMin, precioMax]);
+      const rows = await query(sql, [precioMin, precioMax]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías por rango de precios: ${error.message}`);
@@ -446,7 +446,7 @@ class CategoriaProducto {
    * @returns {Promise<Array>} Categorías con mayor valor de inventario
    */
   static async obtenerConMayorValorInventario(limite = 10) {
-    const query = `
+    const sql = `
       SELECT cp.*, 
              COUNT(p.id) as total_productos,
              SUM(p.stock * p.precio_venta) as valor_inventario,
@@ -460,7 +460,7 @@ class CategoriaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías con mayor valor de inventario: ${error.message}`);

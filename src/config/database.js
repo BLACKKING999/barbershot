@@ -113,6 +113,8 @@ pool.on('error', manejarErrorConexion);
 
 // Función utilitaria para ejecutar queries
 async function query(sql, params) {
+  console.log('SQL:', sql);
+  console.log('Parámetros:', [...params, limitNum, offset]);
   const [rows] = await pool.execute(sql, params);
   return rows;
 }

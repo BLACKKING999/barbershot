@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de notificaciones push
@@ -18,13 +18,13 @@ class NotificacionPush {
       activo = 1
     } = notificacion;
 
-    const query = `
+    const sql = `
       INSERT INTO notificaciones_push (usuario_id, token_dispositivo, plataforma, activo)
       VALUES (?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         usuario_id, token_dispositivo, plataforma, activo
       ]);
 
@@ -40,7 +40,7 @@ class NotificacionPush {
    * @returns {Promise<Object|null>} Notificación encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT np.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -53,7 +53,7 @@ class NotificacionPush {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener notificación push: ${error.message}`);
@@ -66,7 +66,7 @@ class NotificacionPush {
    * @returns {Promise<Object|null>} Notificación encontrada
    */
   static async obtenerPorToken(token_dispositivo) {
-    const query = `
+    const sql = `
       SELECT np.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email
@@ -76,7 +76,7 @@ class NotificacionPush {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [token_dispositivo]);
+      const rows = await query(sql, [token_dispositivo]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener notificación por token: ${error.message}`);
@@ -120,7 +120,7 @@ class NotificacionPush {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT np.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -141,8 +141,8 @@ class NotificacionPush {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         notificaciones: rows,
@@ -181,14 +181,14 @@ class NotificacionPush {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE notificaciones_push 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Notificación push no encontrada');
@@ -206,10 +206,10 @@ class NotificacionPush {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM notificaciones_push WHERE id = ?';
+    const sql = 'DELETE FROM notificaciones_push WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar notificación push: ${error.message}`);
@@ -223,7 +223,7 @@ class NotificacionPush {
    * @returns {Promise<Array>} Notificaciones del usuario
    */
   static async obtenerPorUsuario(usuario_id, opciones = {}) {
-    const { activo = null, orden = 'created_at DESC' } = opciones;
+    const { activo = null, plataforma = null, limite = 50 } = opciones;
 
     let whereConditions = ['np.usuario_id = ?'];
     let params = [usuario_id];
@@ -233,21 +233,24 @@ class NotificacionPush {
       params.push(activo);
     }
 
-    const query = `
+    if (plataforma) {
+      whereConditions.push('np.plataforma = ?');
+      params.push(plataforma);
+    }
+
+    const sql = `
       SELECT np.*,
-             CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
-             u.email as usuario_email,
              COUNT(npe.id) as total_notificaciones_enviadas
       FROM notificaciones_push np
-      JOIN usuarios u ON np.usuario_id = u.id
       LEFT JOIN notificaciones_push_enviadas npe ON np.id = npe.notificacion_push_id
       WHERE ${whereConditions.join(' AND ')}
       GROUP BY np.id
-      ORDER BY np.${orden}
+      ORDER BY np.created_at DESC
+      LIMIT ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por usuario: ${error.message}`);
@@ -256,12 +259,12 @@ class NotificacionPush {
 
   /**
    * Obtener notificaciones por plataforma
-   * @param {string} plataforma - Plataforma (android, ios, web)
+   * @param {string} plataforma - Plataforma (web, android, ios)
    * @param {Object} opciones - Opciones adicionales
    * @returns {Promise<Array>} Notificaciones de la plataforma
    */
   static async obtenerPorPlataforma(plataforma, opciones = {}) {
-    const { activo = null, orden = 'created_at DESC' } = opciones;
+    const { activo = null, limite = 100 } = opciones;
 
     let whereConditions = ['np.plataforma = ?'];
     let params = [plataforma];
@@ -271,7 +274,7 @@ class NotificacionPush {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT np.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -281,11 +284,12 @@ class NotificacionPush {
       LEFT JOIN notificaciones_push_enviadas npe ON np.id = npe.notificacion_push_id
       WHERE ${whereConditions.join(' AND ')}
       GROUP BY np.id
-      ORDER BY np.${orden}
+      ORDER BY np.created_at DESC
+      LIMIT ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener notificaciones por plataforma: ${error.message}`);
@@ -294,7 +298,7 @@ class NotificacionPush {
 
   /**
    * Obtener tokens activos
-   * @param {Object} opciones - Opciones adicionales
+   * @param {Object} opciones - Opciones de filtrado
    * @returns {Promise<Array>} Tokens activos
    */
   static async obtenerTokensActivos(opciones = {}) {
@@ -313,19 +317,19 @@ class NotificacionPush {
       params.push(usuario_id);
     }
 
-    const query = `
+    const sql = `
       SELECT np.token_dispositivo,
              np.plataforma,
-             CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
-             u.email as usuario_email
+             np.usuario_id,
+             CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre
       FROM notificaciones_push np
       JOIN usuarios u ON np.usuario_id = u.id
       WHERE ${whereConditions.join(' AND ')}
-      ORDER BY u.nombre, u.apellido
+      ORDER BY np.created_at DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tokens activos: ${error.message}`);
@@ -333,20 +337,20 @@ class NotificacionPush {
   }
 
   /**
-   * Activar/desactivar notificación push
+   * Cambiar estado de notificación
    * @param {number} id - ID de la notificación
    * @param {boolean} activo - Estado activo
    * @returns {Promise<Object>} Notificación actualizada
    */
   static async cambiarEstado(id, activo) {
-    const query = `
+    const sql = `
       UPDATE notificaciones_push 
       SET activo = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, [activo ? 1 : 0, id]);
+      const result = await query(sql, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Notificación push no encontrada');
@@ -354,7 +358,7 @@ class NotificacionPush {
 
       return this.obtenerPorId(id);
     } catch (error) {
-      throw new Error(`Error al cambiar estado de la notificación: ${error.message}`);
+      throw new Error(`Error al cambiar estado: ${error.message}`);
     }
   }
 
@@ -363,66 +367,64 @@ class NotificacionPush {
    * @param {number} usuario_id - ID del usuario
    * @param {string} token_dispositivo - Token del dispositivo
    * @param {Object} datos - Datos adicionales
-   * @returns {Promise<Object>} Notificación creada o actualizada
+   * @returns {Promise<Object>} Token creado o actualizado
    */
   static async crearOActualizarToken(usuario_id, token_dispositivo, datos = {}) {
-    try {
-      const existente = await this.obtenerPorToken(token_dispositivo);
-      
-      if (existente) {
-        // Actualizar token existente
-        return await this.actualizar(existente.id, {
-          usuario_id,
-          ...datos
-        });
-      } else {
-        // Crear nuevo token
-        return await this.crear({
-          usuario_id,
-          token_dispositivo,
-          ...datos
-        });
+    const { plataforma = 'web', activo = 1 } = datos;
+
+    // Verificar si ya existe el token
+    const existente = await this.obtenerPorToken(token_dispositivo);
+    
+    if (existente) {
+      // Actualizar si es diferente usuario
+      if (existente.usuario_id !== usuario_id) {
+        return await this.actualizar(existente.id, { usuario_id, activo });
       }
-    } catch (error) {
-      throw new Error(`Error al crear o actualizar token: ${error.message}`);
+      return existente;
     }
+
+    // Crear nuevo token
+    return await this.crear({
+      usuario_id,
+      token_dispositivo,
+      plataforma,
+      activo
+    });
   }
 
   /**
-   * Eliminar tokens por usuario
+   * Eliminar todos los tokens de un usuario
    * @param {number} usuario_id - ID del usuario
-   * @returns {Promise<number>} Cantidad de tokens eliminados
+   * @returns {Promise<number>} Número de tokens eliminados
    */
   static async eliminarTokensUsuario(usuario_id) {
-    const query = 'DELETE FROM notificaciones_push WHERE usuario_id = ?';
+    const sql = 'DELETE FROM notificaciones_push WHERE usuario_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [usuario_id]);
+      const result = await query(sql, [usuario_id]);
       return result.affectedRows;
     } catch (error) {
-      throw new Error(`Error al eliminar tokens del usuario: ${error.message}`);
+      throw new Error(`Error al eliminar tokens de usuario: ${error.message}`);
     }
   }
 
   /**
    * Obtener estadísticas de notificaciones push
-   * @returns {Promise<Object>} Estadísticas de notificaciones push
+   * @returns {Promise<Object>} Estadísticas
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
-        COUNT(*) as total_registros,
+        COUNT(*) as total_tokens,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as tokens_activos,
         COUNT(CASE WHEN activo = 0 THEN 1 END) as tokens_inactivos,
         COUNT(DISTINCT usuario_id) as usuarios_con_tokens,
-        COUNT(CASE WHEN plataforma = 'android' THEN 1 END) as android,
-        COUNT(CASE WHEN plataforma = 'ios' THEN 1 END) as ios,
-        COUNT(CASE WHEN plataforma = 'web' THEN 1 END) as web
+        COUNT(DISTINCT plataforma) as plataformas_diferentes
       FROM notificaciones_push
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -434,19 +436,19 @@ class NotificacionPush {
    * @returns {Promise<Array>} Estadísticas por plataforma
    */
   static async obtenerEstadisticasPorPlataforma() {
-    const query = `
+    const sql = `
       SELECT 
         plataforma,
         COUNT(*) as total_tokens,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as tokens_activos,
-        COUNT(DISTINCT usuario_id) as usuarios_unicos
+        COUNT(CASE WHEN activo = 0 THEN 1 END) as tokens_inactivos
       FROM notificaciones_push
       GROUP BY plataforma
       ORDER BY total_tokens DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por plataforma: ${error.message}`);
@@ -455,10 +457,10 @@ class NotificacionPush {
 
   /**
    * Obtener plataformas disponibles
-   * @returns {Array} Plataformas disponibles
+   * @returns {Array} Lista de plataformas
    */
   static obtenerPlataformas() {
-    return ['android', 'ios', 'web'];
+    return ['web', 'android', 'ios'];
   }
 
   /**
@@ -467,28 +469,34 @@ class NotificacionPush {
    * @returns {Promise<boolean>} Token válido
    */
   static async validarToken(token_dispositivo) {
-    if (!token_dispositivo || token_dispositivo.length < 10) {
-      return false;
-    }
+    const sql = `
+      SELECT COUNT(*) as total
+      FROM notificaciones_push
+      WHERE token_dispositivo = ? AND activo = 1
+    `;
 
-    const notificacion = await this.obtenerPorToken(token_dispositivo);
-    return notificacion && notificacion.activo;
+    try {
+      const rows = await query(sql, [token_dispositivo]);
+      return rows[0].total > 0;
+    } catch (error) {
+      throw new Error(`Error al validar token: ${error.message}`);
+    }
   }
 
   /**
    * Limpiar tokens inactivos
    * @param {number} dias_inactivo - Días de inactividad
-   * @returns {Promise<number>} Cantidad de tokens eliminados
+   * @returns {Promise<number>} Número de tokens eliminados
    */
   static async limpiarTokensInactivos(dias_inactivo = 30) {
-    const query = `
+    const sql = `
       DELETE FROM notificaciones_push 
       WHERE activo = 0 
         AND updated_at < DATE_SUB(NOW(), INTERVAL ? DAY)
     `;
 
     try {
-      const [result] = await pool.execute(query, [dias_inactivo]);
+      const result = await query(sql, [dias_inactivo]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al limpiar tokens inactivos: ${error.message}`);

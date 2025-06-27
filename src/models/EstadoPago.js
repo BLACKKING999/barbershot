@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de estados de pago
@@ -13,13 +13,13 @@ class EstadoPago {
   static async crear(estadoPago) {
     const { nombre, descripcion } = estadoPago;
 
-    const query = `
+    const sql = `
       INSERT INTO estados_pago (nombre, descripcion)
       VALUES (?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion]);
+      const result = await query(sql, [nombre, descripcion]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear estado de pago: ${error.message}`);
@@ -32,7 +32,7 @@ class EstadoPago {
    * @returns {Promise<Object|null>} Estado de pago encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT ep.*, 
              COUNT(p.id) as total_pagos,
              SUM(p.monto_total) as monto_total_procesado,
@@ -44,7 +44,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener estado de pago: ${error.message}`);
@@ -59,7 +59,7 @@ class EstadoPago {
   static async obtenerTodos(opciones = {}) {
     const { incluirEstadisticas = false } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ep.*, 
              COUNT(p.id) as total_pagos,
              SUM(p.monto_total) as monto_total_procesado,
@@ -71,7 +71,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados de pago: ${error.message}`);
@@ -101,14 +101,14 @@ class EstadoPago {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE estados_pago 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Estado de pago no encontrado');
@@ -132,10 +132,10 @@ class EstadoPago {
       throw new Error('No se puede eliminar un estado de pago que tiene pagos asociados');
     }
 
-    const query = 'DELETE FROM estados_pago WHERE id = ?';
+    const sql = 'DELETE FROM estados_pago WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar estado de pago: ${error.message}`);
@@ -148,7 +148,7 @@ class EstadoPago {
    * @returns {Promise<Array>} Estados de pago encontrados
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT ep.*, 
              COUNT(p.id) as total_pagos
       FROM estados_pago ep
@@ -161,7 +161,7 @@ class EstadoPago {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar estados de pago: ${error.message}`);
@@ -190,7 +190,7 @@ class EstadoPago {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT p.*, 
              mp.nombre as metodo_pago_nombre,
              c.fecha_hora_inicio,
@@ -209,7 +209,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos por estado: ${error.message}`);
@@ -239,7 +239,7 @@ class EstadoPago {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         ep.id,
         ep.nombre,
@@ -257,7 +257,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -271,7 +271,7 @@ class EstadoPago {
    * @returns {Promise<Array>} Estados de pago por período
    */
   static async obtenerPorPeriodo(fecha_inicio, fecha_fin) {
-    const query = `
+    const sql = `
       SELECT 
         ep.id,
         ep.nombre,
@@ -287,7 +287,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados por período: ${error.message}`);
@@ -301,16 +301,16 @@ class EstadoPago {
    * @returns {Promise<boolean>} Existe el estado de pago
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM estados_pago WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM estados_pago WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -322,7 +322,7 @@ class EstadoPago {
    * @returns {Promise<Array>} Estados de pago sin uso
    */
   static async obtenerSinUso() {
-    const query = `
+    const sql = `
       SELECT ep.*, 
              COUNT(p.id) as total_pagos
       FROM estados_pago ep
@@ -333,7 +333,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estados sin uso: ${error.message}`);
@@ -346,7 +346,7 @@ class EstadoPago {
    * @returns {Promise<Object|null>} Estado de pago encontrado
    */
   static async obtenerPorNombre(nombre) {
-    const query = `
+    const sql = `
       SELECT ep.*, 
              COUNT(p.id) as total_pagos,
              SUM(p.monto_total) as monto_total_procesado
@@ -357,7 +357,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [nombre]);
+      const rows = await query(sql, [nombre]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener estado por nombre: ${error.message}`);
@@ -369,7 +369,7 @@ class EstadoPago {
    * @returns {Promise<Array>} Resumen de estados de pago
    */
   static async obtenerResumen() {
-    const query = `
+    const sql = `
       SELECT 
         ep.id,
         ep.nombre,
@@ -386,7 +386,7 @@ class EstadoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener resumen: ${error.message}`);

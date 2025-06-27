@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de relaciones empleado-especialidad
@@ -23,13 +23,13 @@ class EmpleadoEspecialidad {
       throw new Error('El empleado ya tiene esta especialidad asignada');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO empleado_especialidad (empleado_id, especialidad_id, nivel)
       VALUES (?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, especialidad_id, nivel]);
+      const result = await query(sql, [empleado_id, especialidad_id, nivel]);
       return this.obtenerPorId(empleado_id, especialidad_id);
     } catch (error) {
       throw new Error(`Error al crear relación empleado-especialidad: ${error.message}`);
@@ -43,7 +43,7 @@ class EmpleadoEspecialidad {
    * @returns {Promise<Object|null>} Relación encontrada
    */
   static async obtenerPorId(empleado_id, especialidad_id) {
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -57,7 +57,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id, especialidad_id]);
+      const rows = await query(sql, [empleado_id, especialidad_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener relación empleado-especialidad: ${error.message}`);
@@ -111,7 +111,7 @@ class EmpleadoEspecialidad {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -133,8 +133,8 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         relaciones: rows,
@@ -174,14 +174,14 @@ class EmpleadoEspecialidad {
     }
 
     valores.push(empleado_id, especialidad_id);
-    const query = `
+    const sql = `
       UPDATE empleado_especialidad 
       SET ${camposActualizar.join(', ')}
       WHERE empleado_id = ? AND especialidad_id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Relación empleado-especialidad no encontrada');
@@ -200,10 +200,10 @@ class EmpleadoEspecialidad {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(empleado_id, especialidad_id) {
-    const query = 'DELETE FROM empleado_especialidad WHERE empleado_id = ? AND especialidad_id = ?';
+    const sql = 'DELETE FROM empleado_especialidad WHERE empleado_id = ? AND especialidad_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, especialidad_id]);
+      const result = await query(sql, [empleado_id, especialidad_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar relación: ${error.message}`);
@@ -219,7 +219,7 @@ class EmpleadoEspecialidad {
   static async obtenerPorEmpleado(empleado_id, opciones = {}) {
     const { orden = 'especialidad_nombre ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -234,7 +234,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades por empleado: ${error.message}`);
@@ -258,7 +258,7 @@ class EmpleadoEspecialidad {
       params.push(nivel);
     }
 
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -273,7 +273,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados por especialidad: ${error.message}`);
@@ -297,7 +297,7 @@ class EmpleadoEspecialidad {
       params.push(especialidad_id);
     }
 
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -312,7 +312,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados por nivel: ${error.message}`);
@@ -328,7 +328,7 @@ class EmpleadoEspecialidad {
   static async buscarEmpleadosPorEspecialidad(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ee.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -349,7 +349,7 @@ class EmpleadoEspecialidad {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -363,7 +363,7 @@ class EmpleadoEspecialidad {
    * @returns {Promise<Object>} Estadísticas de especialidades
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_relaciones,
         COUNT(DISTINCT empleado_id) as empleados_con_especialidades,
@@ -376,7 +376,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -388,7 +388,7 @@ class EmpleadoEspecialidad {
    * @returns {Promise<Array>} Estadísticas por especialidad
    */
   static async obtenerEstadisticasPorEspecialidad() {
-    const query = `
+    const sql = `
       SELECT es.id,
              es.nombre as especialidad_nombre,
              COUNT(ee.empleado_id) as total_empleados,
@@ -403,7 +403,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por especialidad: ${error.message}`);
@@ -416,7 +416,7 @@ class EmpleadoEspecialidad {
    * @returns {Promise<Object>} Estadísticas del empleado
    */
   static async obtenerEstadisticasEmpleado(empleado_id) {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_especialidades,
         COUNT(CASE WHEN nivel = 'Principiante' THEN 1 END) as principiantes,
@@ -428,7 +428,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del empleado: ${error.message}`);
@@ -466,10 +466,10 @@ class EmpleadoEspecialidad {
    * @returns {Promise<number>} Cantidad de especialidades eliminadas
    */
   static async eliminarEspecialidadesEmpleado(empleado_id) {
-    const query = 'DELETE FROM empleado_especialidad WHERE empleado_id = ?';
+    const sql = 'DELETE FROM empleado_especialidad WHERE empleado_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id]);
+      const result = await query(sql, [empleado_id]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al eliminar especialidades del empleado: ${error.message}`);
@@ -516,7 +516,7 @@ class EmpleadoEspecialidad {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT ee.empleado_id, ee.especialidad_id, ee.nivel, ee.created_at,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -531,7 +531,7 @@ class EmpleadoEspecialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar relaciones: ${error.message}`);

@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de plantillas de correo
@@ -21,16 +21,15 @@ class PlantillaCorreo {
       variables = null
     } = plantilla;
 
-    const query = `
+    const sql = `
       INSERT INTO plantillas_correo (nombre, asunto, contenido_html, contenido_texto, tipo, activo, variables)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         nombre, asunto, contenido_html, contenido_texto, tipo, activo, variables
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear plantilla: ${error.message}`);
@@ -43,7 +42,7 @@ class PlantillaCorreo {
    * @returns {Promise<Object|null>} Plantilla encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -55,7 +54,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener plantilla: ${error.message}`);
@@ -68,7 +67,7 @@ class PlantillaCorreo {
    * @returns {Promise<Object|null>} Plantilla encontrada
    */
   static async obtenerPorTipo(tipo) {
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -82,7 +81,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [tipo]);
+      const rows = await query(sql, [tipo]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener plantilla por tipo: ${error.message}`);
@@ -120,7 +119,7 @@ class PlantillaCorreo {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -140,8 +139,8 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         plantillas: rows,
@@ -180,14 +179,14 @@ class PlantillaCorreo {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE plantillas_correo 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Plantilla no encontrada');
@@ -211,10 +210,10 @@ class PlantillaCorreo {
       throw new Error('No se puede eliminar la plantilla porque tiene correos asociados');
     }
 
-    const query = 'DELETE FROM plantillas_correo WHERE id = ?';
+    const sql = 'DELETE FROM plantillas_correo WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar plantilla: ${error.message}`);
@@ -227,14 +226,14 @@ class PlantillaCorreo {
    * @returns {Promise<boolean>} Tiene correos asociados
    */
   static async verificarCorreosAsociados(plantilla_id) {
-    const query = `
+    const sql = `
       SELECT 
         (SELECT COUNT(*) FROM correos_enviados WHERE plantilla_id = ?) +
         (SELECT COUNT(*) FROM correos_programados WHERE plantilla_id = ?) as total
     `;
 
     try {
-      const [rows] = await pool.execute(query, [plantilla_id, plantilla_id]);
+      const rows = await query(sql, [plantilla_id, plantilla_id]);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar correos asociados: ${error.message}`);
@@ -250,7 +249,7 @@ class PlantillaCorreo {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -269,7 +268,7 @@ class PlantillaCorreo {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -295,7 +294,7 @@ class PlantillaCorreo {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -308,7 +307,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener plantillas por tipo: ${error.message}`);
@@ -323,7 +322,7 @@ class PlantillaCorreo {
   static async obtenerActivas(opciones = {}) {
     const { orden = 'nombre ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados
@@ -336,7 +335,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener plantillas activas: ${error.message}`);
@@ -350,14 +349,14 @@ class PlantillaCorreo {
    * @returns {Promise<Object>} Plantilla actualizada
    */
   static async cambiarEstado(id, activo) {
-    const query = `
+    const sql = `
       UPDATE plantillas_correo 
       SET activo = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, [activo ? 1 : 0, id]);
+      const result = await query(sql, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Plantilla no encontrada');
@@ -413,7 +412,7 @@ class PlantillaCorreo {
    * @returns {Promise<Array>} Tipos disponibles
    */
   static async obtenerTipos() {
-    const query = `
+    const sql = `
       SELECT DISTINCT tipo, COUNT(*) as cantidad
       FROM plantillas_correo
       GROUP BY tipo
@@ -421,7 +420,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tipos: ${error.message}`);
@@ -433,7 +432,7 @@ class PlantillaCorreo {
    * @returns {Promise<Object>} Estadísticas de plantillas
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_plantillas,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as plantillas_activas,
@@ -445,7 +444,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -458,7 +457,7 @@ class PlantillaCorreo {
    * @returns {Promise<Array>} Plantillas más utilizadas
    */
   static async obtenerMasUtilizadas(limite = 10) {
-    const query = `
+    const sql = `
       SELECT pc.*,
              COUNT(ce.id) as total_correos_enviados,
              COUNT(cp.id) as total_correos_programados,
@@ -472,7 +471,7 @@ class PlantillaCorreo {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener plantillas más utilizadas: ${error.message}`);

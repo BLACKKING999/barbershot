@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de pagos
@@ -7,36 +7,38 @@ const pool = require('../config/database');
 class Pago {
   /**
    * Crear un nuevo pago
-   * @param {Object} pago - Datos del pago
+   * @param {Object} pagoData - Datos del pago
    * @returns {Promise<Object>} Pago creado
    */
-  static async crear(pago) {
+  static async crear(pagoData) {
     const {
       cita_id,
-      monto_total,
-      impuesto = 0.00,
-      propina = 0.00,
+      cliente_id,
+      empleado_id,
       metodo_pago_id,
       estado_pago_id,
-      referencia_pago,
-      factura_emitida = 0,
-      fecha_pago,
-      notas
-    } = pago;
+      monto_total,
+      monto_pagado = 0,
+      monto_pendiente,
+      fecha_pago = new Date(),
+      referencia_pago = null,
+      notas = null
+    } = pagoData;
 
-    const query = `
+    const sql = `
       INSERT INTO pagos (
-        cita_id, monto_total, impuesto, propina, metodo_pago_id,
-        estado_pago_id, referencia_pago, factura_emitida, fecha_pago, notas
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cita_id, cliente_id, empleado_id, metodo_pago_id, estado_pago_id,
+        monto_total, monto_pagado, monto_pendiente, fecha_pago, referencia_pago, notas
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    try {
-      const [result] = await pool.execute(query, [
-        cita_id, monto_total, impuesto, propina, metodo_pago_id,
-        estado_pago_id, referencia_pago, factura_emitida, fecha_pago, notas
-      ]);
+    const params = [
+      cita_id, cliente_id, empleado_id, metodo_pago_id, estado_pago_id,
+      monto_total, monto_pagado, monto_pendiente, fecha_pago, referencia_pago, notas
+    ];
 
+    try {
+      const result = await query(sql, params);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear pago: ${error.message}`);
@@ -49,27 +51,26 @@ class Pago {
    * @returns {Promise<Object|null>} Pago encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
-      SELECT p.*, 
-             mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
-             c.fecha_hora_fin,
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin, c.duracion_minutos,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
       WHERE p.id = ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener pago: ${error.message}`);
@@ -77,34 +78,26 @@ class Pago {
   }
 
   /**
-   * Obtener todos los pagos con paginación
-   * @param {Object} opciones - Opciones de paginación y filtros
-   * @returns {Promise<Object>} Lista de pagos y metadatos
+   * Obtener todos los pagos
+   * @param {Object} filtros - Filtros opcionales
+   * @returns {Promise<Object>} Lista de pagos y total
    */
-  static async obtenerTodos(opciones = {}) {
+  static async obtenerTodos(filtros = {}) {
     const {
-      pagina = 1,
       limite = 10,
-      estado_pago_id = null,
-      metodo_pago_id = null,
+      offset = 0,
       fecha_inicio = null,
       fecha_fin = null,
-      orden = 'fecha_pago',
-      direccion = 'DESC'
-    } = opciones;
+      cliente_id = null,
+      empleado_id = null,
+      metodo_pago_id = null,
+      estado_pago_id = null,
+      monto_min = null,
+      monto_max = null
+    } = filtros;
 
     let whereConditions = [];
     let params = [];
-
-    if (estado_pago_id) {
-      whereConditions.push('p.estado_pago_id = ?');
-      params.push(estado_pago_id);
-    }
-
-    if (metodo_pago_id) {
-      whereConditions.push('p.metodo_pago_id = ?');
-      params.push(metodo_pago_id);
-    }
 
     if (fecha_inicio) {
       whereConditions.push('p.fecha_pago >= ?');
@@ -116,26 +109,55 @@ class Pago {
       params.push(fecha_fin);
     }
 
+    if (cliente_id) {
+      whereConditions.push('p.cliente_id = ?');
+      params.push(cliente_id);
+    }
+
+    if (empleado_id) {
+      whereConditions.push('p.empleado_id = ?');
+      params.push(empleado_id);
+    }
+
+    if (metodo_pago_id) {
+      whereConditions.push('p.metodo_pago_id = ?');
+      params.push(metodo_pago_id);
+    }
+
+    if (estado_pago_id) {
+      whereConditions.push('p.estado_pago_id = ?');
+      params.push(estado_pago_id);
+    }
+
+    if (monto_min) {
+      whereConditions.push('p.monto_total >= ?');
+      params.push(monto_min);
+    }
+
+    if (monto_max) {
+      whereConditions.push('p.monto_total <= ?');
+      params.push(monto_max);
+    }
+
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const offset = (pagina - 1) * limite;
-    const query = `
-      SELECT p.*, 
-             mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
       ${whereClause}
-      ORDER BY p.${orden} ${direccion}
+      ORDER BY p.fecha_pago DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -146,17 +168,14 @@ class Pago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
-
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
+      
       return {
         pagos: rows,
-        paginacion: {
-          pagina,
-          limite,
-          total: countResult[0].total,
-          totalPaginas: Math.ceil(countResult[0].total / limite)
-        }
+        total: countResult[0].total,
+        pagina: Math.floor(offset / limite) + 1,
+        totalPaginas: Math.ceil(countResult[0].total / limite)
       };
     } catch (error) {
       throw new Error(`Error al obtener pagos: ${error.message}`);
@@ -171,8 +190,8 @@ class Pago {
    */
   static async actualizar(id, datos) {
     const camposPermitidos = [
-      'monto_total', 'impuesto', 'propina', 'metodo_pago_id',
-      'estado_pago_id', 'referencia_pago', 'factura_emitida', 'fecha_pago', 'notas'
+      'metodo_pago_id', 'estado_pago_id', 'monto_pagado', 'monto_pendiente',
+      'fecha_pago', 'referencia_pago', 'notas'
     ];
 
     const camposActualizar = [];
@@ -190,14 +209,14 @@ class Pago {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE pagos 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Pago no encontrado');
@@ -215,10 +234,10 @@ class Pago {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM pagos WHERE id = ?';
+    const sql = 'DELETE FROM pagos WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar pago: ${error.message}`);
@@ -231,19 +250,19 @@ class Pago {
    * @returns {Promise<Array>} Pagos de la cita
    */
   static async obtenerPorCita(cita_id) {
-    const query = `
-      SELECT p.*, 
+    const sql = `
+      SELECT p.*,
              mp.nombre as metodo_pago_nombre,
              ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
       WHERE p.cita_id = ?
-      ORDER BY p.created_at DESC
+      ORDER BY p.fecha_pago DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cita_id]);
+      const rows = await query(sql, [cita_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos por cita: ${error.message}`);
@@ -253,29 +272,29 @@ class Pago {
   /**
    * Obtener pagos por cliente
    * @param {number} cliente_id - ID del cliente
-   * @param {Object} opciones - Opciones adicionales
+   * @param {number} limite - Límite de resultados
    * @returns {Promise<Array>} Pagos del cliente
    */
-  static async obtenerPorCliente(cliente_id, opciones = {}) {
-    const { limite = 50, orden = 'fecha_pago DESC' } = opciones;
-
-    const query = `
-      SELECT p.*, 
+  static async obtenerPorCliente(cliente_id, limite = 50) {
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
              mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
-             c.fecha_hora_fin
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      WHERE c.cliente_id = ?
-      ORDER BY p.${orden}
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      WHERE p.cliente_id = ?
+      ORDER BY p.fecha_pago DESC
       LIMIT ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id, limite]);
+      const rows = await query(sql, [cliente_id, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos por cliente: ${error.message}`);
@@ -283,49 +302,38 @@ class Pago {
   }
 
   /**
-   * Obtener pagos por empleado
-   * @param {number} empleado_id - ID del empleado
-   * @param {Object} opciones - Opciones adicionales
-   * @returns {Promise<Array>} Pagos del empleado
+   * Obtener pagos por período
+   * @param {string} fecha_inicio - Fecha de inicio
+   * @param {string} fecha_fin - Fecha de fin
+   * @param {number} limite - Límite de resultados
+   * @returns {Promise<Array>} Pagos del período
    */
-  static async obtenerPorEmpleado(empleado_id, opciones = {}) {
-    const { fecha_inicio = null, fecha_fin = null, limite = 50 } = opciones;
-
-    let whereConditions = ['c.empleado_id = ?'];
-    let params = [empleado_id];
-
-    if (fecha_inicio) {
-      whereConditions.push('p.fecha_pago >= ?');
-      params.push(fecha_inicio);
-    }
-
-    if (fecha_fin) {
-      whereConditions.push('p.fecha_pago <= ?');
-      params.push(fecha_fin);
-    }
-
-    const query = `
-      SELECT p.*, 
+  static async obtenerPorPeriodo(fecha_inicio, fecha_fin, limite = 100) {
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
+             CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
              mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
-             CONCAT(u.nombre, ' ', u.apellido) as cliente_nombre
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u ON cl.usuario_id = u.id
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      WHERE ${whereConditions.join(' AND ')}
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      WHERE p.fecha_pago BETWEEN ? AND ?
       ORDER BY p.fecha_pago DESC
       LIMIT ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin, limite]);
       return rows;
     } catch (error) {
-      throw new Error(`Error al obtener pagos por empleado: ${error.message}`);
+      throw new Error(`Error al obtener pagos por período: ${error.message}`);
     }
   }
 
@@ -335,7 +343,7 @@ class Pago {
    * @returns {Promise<Object>} Estadísticas de pagos
    */
   static async obtenerEstadisticas(opciones = {}) {
-    const { fecha_inicio = null, fecha_fin = null, empleado_id = null } = opciones;
+    const { fecha_inicio = null, fecha_fin = null } = opciones;
 
     let whereConditions = [];
     let params = [];
@@ -350,28 +358,23 @@ class Pago {
       params.push(fecha_fin);
     }
 
-    if (empleado_id) {
-      whereConditions.push('c.empleado_id = ?');
-      params.push(empleado_id);
-    }
-
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_pagos,
-        SUM(p.monto_total) as monto_total,
-        SUM(p.impuesto) as impuesto_total,
-        SUM(p.propina) as propina_total,
+        SUM(p.monto_total) as monto_total_procesado,
+        SUM(p.monto_pagado) as monto_total_pagado,
+        SUM(p.monto_pendiente) as monto_total_pendiente,
         AVG(p.monto_total) as monto_promedio,
-        COUNT(CASE WHEN p.factura_emitida = 1 THEN 1 END) as facturas_emitidas
+        MIN(p.monto_total) as monto_minimo,
+        MAX(p.monto_total) as monto_maximo
       FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
       ${whereClause}
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -379,132 +382,49 @@ class Pago {
   }
 
   /**
-   * Obtener pagos por método de pago
-   * @param {number} metodo_pago_id - ID del método de pago
-   * @param {Object} opciones - Opciones adicionales
-   * @returns {Promise<Array>} Pagos por método
-   */
-  static async obtenerPorMetodoPago(metodo_pago_id, opciones = {}) {
-    const { fecha_inicio = null, fecha_fin = null, limite = 50 } = opciones;
-
-    let whereConditions = ['p.metodo_pago_id = ?'];
-    let params = [metodo_pago_id];
-
-    if (fecha_inicio) {
-      whereConditions.push('p.fecha_pago >= ?');
-      params.push(fecha_inicio);
-    }
-
-    if (fecha_fin) {
-      whereConditions.push('p.fecha_pago <= ?');
-      params.push(fecha_fin);
-    }
-
-    const query = `
-      SELECT p.*, 
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
-             CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
-      FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      WHERE ${whereConditions.join(' AND ')}
-      ORDER BY p.fecha_pago DESC
-      LIMIT ?
-    `;
-
-    try {
-      const [rows] = await pool.execute(query, [...params, limite]);
-      return rows;
-    } catch (error) {
-      throw new Error(`Error al obtener pagos por método: ${error.message}`);
-    }
-  }
-
-  /**
-   * Obtener pagos por estado
-   * @param {number} estado_pago_id - ID del estado de pago
-   * @param {Object} opciones - Opciones adicionales
-   * @returns {Promise<Array>} Pagos por estado
-   */
-  static async obtenerPorEstado(estado_pago_id, opciones = {}) {
-    const { fecha_inicio = null, fecha_fin = null, limite = 50 } = opciones;
-
-    let whereConditions = ['p.estado_pago_id = ?'];
-    let params = [estado_pago_id];
-
-    if (fecha_inicio) {
-      whereConditions.push('p.fecha_pago >= ?');
-      params.push(fecha_inicio);
-    }
-
-    if (fecha_fin) {
-      whereConditions.push('p.fecha_pago <= ?');
-      params.push(fecha_fin);
-    }
-
-    const query = `
-      SELECT p.*, 
-             mp.nombre as metodo_pago_nombre,
-             c.fecha_hora_inicio,
-             CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
-      FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      WHERE ${whereConditions.join(' AND ')}
-      ORDER BY p.fecha_pago DESC
-      LIMIT ?
-    `;
-
-    try {
-      const [rows] = await pool.execute(query, [...params, limite]);
-      return rows;
-    } catch (error) {
-      throw new Error(`Error al obtener pagos por estado: ${error.message}`);
-    }
-  }
-
-  /**
    * Obtener pagos pendientes
-   * @param {Object} opciones - Opciones adicionales
+   * @param {Object} filtros - Filtros opcionales
+   * @param {number} limite - Límite de resultados
    * @returns {Promise<Array>} Pagos pendientes
    */
-  static async obtenerPendientes(opciones = {}) {
-    const { limite = 50 } = opciones;
+  static async obtenerPendientes(filtros = {}, limite = 50) {
+    const { cliente_id = null, empleado_id = null } = filtros;
 
-    const query = `
-      SELECT p.*, 
-             mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
-             c.fecha_hora_fin,
+    let whereConditions = ['p.monto_pendiente > 0'];
+    let params = [];
+
+    if (cliente_id) {
+      whereConditions.push('p.cliente_id = ?');
+      params.push(cliente_id);
+    }
+
+    if (empleado_id) {
+      whereConditions.push('p.empleado_id = ?');
+      params.push(empleado_id);
+    }
+
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
-      WHERE ep.nombre IN ('Pendiente', 'Parcial')
-      ORDER BY c.fecha_hora_inicio ASC
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      WHERE ${whereConditions.join(' AND ')}
+      ORDER BY p.fecha_pago ASC
       LIMIT ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos pendientes: ${error.message}`);
@@ -512,34 +432,67 @@ class Pago {
   }
 
   /**
+   * Obtener pagos más recientes
+   * @param {number} limite - Límite de resultados
+   * @returns {Promise<Array>} Pagos más recientes
+   */
+  static async obtenerMasRecientes(limite = 10) {
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
+             CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
+             ep.nombre as estado_pago_nombre
+      FROM pagos p
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      ORDER BY p.fecha_pago DESC
+      LIMIT ?
+    `;
+
+    try {
+      const rows = await query(sql, [limite]);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener pagos más recientes: ${error.message}`);
+    }
+  }
+
+  /**
    * Obtener pagos del día
-   * @param {string} fecha - Fecha específica (YYYY-MM-DD)
+   * @param {string} fecha - Fecha a consultar (YYYY-MM-DD)
    * @returns {Promise<Array>} Pagos del día
    */
   static async obtenerDelDia(fecha = null) {
     const fechaConsulta = fecha || new Date().toISOString().split('T')[0];
 
-    const query = `
-      SELECT p.*, 
-             mp.nombre as metodo_pago_nombre,
-             ep.nombre as estado_pago_nombre,
-             c.fecha_hora_inicio,
+    const sql = `
+      SELECT p.*,
+             c.fecha_hora_inicio, c.fecha_hora_fin,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre
+             CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
+             ep.nombre as estado_pago_nombre
       FROM pagos p
-      JOIN citas c ON p.cita_id = c.id
-      JOIN clientes cl ON c.cliente_id = cl.id
-      JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
-      JOIN empleados e ON c.empleado_id = e.id
-      JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
-      JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
-      JOIN estados_pago ep ON p.estado_pago_id = ep.id
+      INNER JOIN citas c ON p.cita_id = c.id
+      INNER JOIN clientes cl ON p.cliente_id = cl.id
+      INNER JOIN usuarios u_cliente ON cl.usuario_id = u_cliente.id
+      INNER JOIN empleados e ON p.empleado_id = e.id
+      INNER JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      INNER JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+      INNER JOIN estados_pago ep ON p.estado_pago_id = ep.id
       WHERE DATE(p.fecha_pago) = ?
       ORDER BY p.fecha_pago DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fechaConsulta]);
+      const rows = await query(sql, [fechaConsulta]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos del día: ${error.message}`);
@@ -547,40 +500,41 @@ class Pago {
   }
 
   /**
-   * Verificar si una cita tiene pagos
+   * Verificar si existe pago para una cita
    * @param {number} cita_id - ID de la cita
-   * @returns {Promise<boolean>} Tiene pagos
+   * @returns {Promise<boolean>} Existe pago para la cita
    */
-  static async citaTienePagos(cita_id) {
-    const query = 'SELECT COUNT(*) as total FROM pagos WHERE cita_id = ?';
+  static async existePorCita(cita_id) {
+    const sql = 'SELECT COUNT(*) as total FROM pagos WHERE cita_id = ?';
 
     try {
-      const [rows] = await pool.execute(query, [cita_id]);
+      const rows = await query(sql, [cita_id]);
       return rows[0].total > 0;
     } catch (error) {
-      throw new Error(`Error al verificar pagos de cita: ${error.message}`);
+      throw new Error(`Error al verificar pago por cita: ${error.message}`);
     }
   }
 
   /**
-   * Obtener total pagado por cita
+   * Obtener total de pagos por cita
    * @param {number} cita_id - ID de la cita
-   * @returns {Promise<number>} Total pagado
+   * @returns {Promise<Object>} Total de pagos
    */
-  static async obtenerTotalPagadoPorCita(cita_id) {
-    const query = `
-      SELECT COALESCE(SUM(monto_total), 0) as total_pagado
+  static async obtenerTotalPorCita(cita_id) {
+    const sql = `
+      SELECT 
+        SUM(monto_total) as monto_total,
+        SUM(monto_pagado) as monto_pagado,
+        SUM(monto_pendiente) as monto_pendiente
       FROM pagos 
-      WHERE cita_id = ? AND estado_pago_id IN (
-        SELECT id FROM estados_pago WHERE nombre IN ('Completado', 'Parcial')
-      )
+      WHERE cita_id = ?
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cita_id]);
-      return parseFloat(rows[0].total_pagado);
+      const rows = await query(sql, [cita_id]);
+      return rows[0];
     } catch (error) {
-      throw new Error(`Error al obtener total pagado: ${error.message}`);
+      throw new Error(`Error al obtener total por cita: ${error.message}`);
     }
   }
 }

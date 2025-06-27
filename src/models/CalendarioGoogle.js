@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de calendarios de Google
@@ -21,14 +21,14 @@ class CalendarioGoogle {
       sincronizacion_activa = 1
     } = calendario;
 
-    const query = `
+    const sql = `
       INSERT INTO calendarios_google 
       (usuario_id, calendar_id, nombre_calendario, token_acceso, token_refresco, expiracion_token, sincronizacion_activa)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         usuario_id, calendar_id, nombre_calendario, token_acceso, token_refresco, 
         expiracion_token, sincronizacion_activa
       ]);
@@ -45,7 +45,7 @@ class CalendarioGoogle {
    * @returns {Promise<Object|null>} Calendario encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -60,7 +60,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener calendario: ${error.message}`);
@@ -98,7 +98,7 @@ class CalendarioGoogle {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -121,8 +121,8 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         calendarios: rows,
@@ -164,14 +164,14 @@ class CalendarioGoogle {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE calendarios_google 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Calendario no encontrado');
@@ -189,10 +189,10 @@ class CalendarioGoogle {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM calendarios_google WHERE id = ?';
+    const sql = 'DELETE FROM calendarios_google WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar calendario: ${error.message}`);
@@ -205,7 +205,7 @@ class CalendarioGoogle {
    * @returns {Promise<Array>} Calendarios del usuario
    */
   static async obtenerPorUsuario(usuario_id) {
-    const query = `
+    const sql = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -221,7 +221,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [usuario_id]);
+      const rows = await query(sql, [usuario_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener calendarios por usuario: ${error.message}`);
@@ -234,7 +234,7 @@ class CalendarioGoogle {
    * @returns {Promise<Object|null>} Calendario encontrado
    */
   static async obtenerPorCalendarId(calendar_id) {
-    const query = `
+    const sql = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -249,7 +249,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [calendar_id]);
+      const rows = await query(sql, [calendar_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener calendario por calendar_id: ${error.message}`);
@@ -265,7 +265,7 @@ class CalendarioGoogle {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,

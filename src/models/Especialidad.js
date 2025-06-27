@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de especialidades
@@ -13,13 +13,13 @@ class Especialidad {
   static async crear(especialidad) {
     const { nombre, descripcion } = especialidad;
 
-    const query = `
+    const sql = `
       INSERT INTO especialidades (nombre, descripcion)
       VALUES (?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion]);
+      const result = await query(sql, [nombre, descripcion]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear especialidad: ${error.message}`);
@@ -32,7 +32,7 @@ class Especialidad {
    * @returns {Promise<Object|null>} Especialidad encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados,
              COUNT(CASE WHEN ee.nivel = 'Experto' THEN 1 END) as empleados_expertos,
@@ -46,7 +46,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener especialidad: ${error.message}`);
@@ -66,7 +66,7 @@ class Especialidad {
       whereClause = 'HAVING total_empleados > 0';
     }
 
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados,
              COUNT(CASE WHEN ee.nivel = 'Experto' THEN 1 END) as empleados_expertos,
@@ -81,7 +81,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       
       if (incluirEmpleados) {
         // Obtener empleados para cada especialidad
@@ -119,14 +119,14 @@ class Especialidad {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE especialidades 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Especialidad no encontrada');
@@ -150,10 +150,10 @@ class Especialidad {
       throw new Error('No se puede eliminar una especialidad que tiene empleados asociados');
     }
 
-    const query = 'DELETE FROM especialidades WHERE id = ?';
+    const sql = 'DELETE FROM especialidades WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar especialidad: ${error.message}`);
@@ -166,7 +166,7 @@ class Especialidad {
    * @returns {Promise<Array>} Especialidades encontradas
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados
       FROM especialidades e
@@ -179,7 +179,7 @@ class Especialidad {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar especialidades: ${error.message}`);
@@ -208,7 +208,7 @@ class Especialidad {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT e.id, e.titulo, e.biografia, e.fecha_contratacion,
              CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
              u.foto_perfil, ee.nivel, ee.created_at as fecha_especialidad
@@ -220,7 +220,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados por especialidad: ${error.message}`);
@@ -232,7 +232,7 @@ class Especialidad {
    * @returns {Promise<Object>} Estadísticas de especialidades
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_especialidades,
         COUNT(CASE WHEN total_empleados > 0 THEN 1 END) as especialidades_con_empleados,
@@ -257,7 +257,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -270,7 +270,7 @@ class Especialidad {
    * @returns {Promise<Array>} Especialidades más populares
    */
   static async obtenerMasPopulares(limite = 10) {
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados,
              COUNT(CASE WHEN ee.nivel = 'Experto' THEN 1 END) as empleados_expertos,
@@ -286,7 +286,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades populares: ${error.message}`);
@@ -298,7 +298,7 @@ class Especialidad {
    * @returns {Promise<Array>} Especialidades con empleados activos
    */
   static async obtenerConEmpleadosActivos() {
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados,
              COUNT(CASE WHEN ee.nivel = 'Experto' THEN 1 END) as empleados_expertos,
@@ -314,7 +314,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades con empleados activos: ${error.message}`);
@@ -328,16 +328,16 @@ class Especialidad {
    * @returns {Promise<boolean>} Existe la especialidad
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM especialidades WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM especialidades WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -349,7 +349,7 @@ class Especialidad {
    * @returns {Promise<Array>} Especialidades vacías
    */
   static async obtenerVacias() {
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados
       FROM especialidades e
@@ -360,7 +360,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades vacías: ${error.message}`);
@@ -379,7 +379,7 @@ class Especialidad {
       throw new Error('Nivel de especialidad no válido');
     }
 
-    const query = `
+    const sql = `
       SELECT e.*, 
              COUNT(ee.empleado_id) as total_empleados,
              COUNT(CASE WHEN ee.nivel = ? THEN 1 END) as empleados_nivel
@@ -391,7 +391,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [nivel]);
+      const rows = await query(sql, [nivel]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades por nivel: ${error.message}`);
@@ -403,7 +403,7 @@ class Especialidad {
    * @returns {Promise<Array>} Resumen de especialidades
    */
   static async obtenerResumen() {
-    const query = `
+    const sql = `
       SELECT 
         e.id,
         e.nombre,
@@ -420,7 +420,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener resumen: ${error.message}`);
@@ -441,14 +441,14 @@ class Especialidad {
       throw new Error('Nivel de especialidad no válido');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO empleado_especialidad (empleado_id, especialidad_id, nivel)
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE nivel = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, especialidad_id, nivel, nivel]);
+      const result = await query(sql, [empleado_id, especialidad_id, nivel, nivel]);
       return { empleado_id, especialidad_id, nivel };
     } catch (error) {
       throw new Error(`Error al asignar especialidad: ${error.message}`);
@@ -462,10 +462,10 @@ class Especialidad {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async removerDeEmpleado(empleado_id, especialidad_id) {
-    const query = 'DELETE FROM empleado_especialidad WHERE empleado_id = ? AND especialidad_id = ?';
+    const sql = 'DELETE FROM empleado_especialidad WHERE empleado_id = ? AND especialidad_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, especialidad_id]);
+      const result = await query(sql, [empleado_id, especialidad_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al remover especialidad: ${error.message}`);
@@ -478,7 +478,7 @@ class Especialidad {
    * @returns {Promise<Array>} Especialidades del empleado
    */
   static async obtenerPorEmpleado(empleado_id) {
-    const query = `
+    const sql = `
       SELECT e.*, ee.nivel, ee.created_at as fecha_asignacion
       FROM especialidades e
       JOIN empleado_especialidad ee ON e.id = ee.especialidad_id
@@ -487,7 +487,7 @@ class Especialidad {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener especialidades del empleado: ${error.message}`);

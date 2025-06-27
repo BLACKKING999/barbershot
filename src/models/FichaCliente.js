@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de fichas de clientes
@@ -21,16 +21,15 @@ class FichaCliente {
       fecha_creacion = new Date()
     } = ficha;
 
-    const query = `
+    const sql = `
       INSERT INTO fichas_clientes (cliente_id, tipo_piel, alergias, condiciones_medicas, preferencias, notas, fecha_creacion)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         cliente_id, tipo_piel, alergias, condiciones_medicas, preferencias, notas, fecha_creacion
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear ficha: ${error.message}`);
@@ -43,7 +42,7 @@ class FichaCliente {
    * @returns {Promise<Object|null>} Ficha encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -55,7 +54,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener ficha: ${error.message}`);
@@ -68,7 +67,7 @@ class FichaCliente {
    * @returns {Promise<Object|null>} Ficha del cliente
    */
   static async obtenerPorCliente(cliente_id) {
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -80,7 +79,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id]);
+      const rows = await query(sql, [cliente_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener ficha del cliente: ${error.message}`);
@@ -130,7 +129,7 @@ class FichaCliente {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -149,8 +148,8 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         fichas: rows,
@@ -189,14 +188,14 @@ class FichaCliente {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE fichas_clientes 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Ficha no encontrada');
@@ -214,10 +213,10 @@ class FichaCliente {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM fichas_clientes WHERE id = ?';
+    const sql = 'DELETE FROM fichas_clientes WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar ficha: ${error.message}`);
@@ -233,7 +232,7 @@ class FichaCliente {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -252,7 +251,7 @@ class FichaCliente {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -270,7 +269,7 @@ class FichaCliente {
   static async obtenerPorTipoPiel(tipo_piel, opciones = {}) {
     const { orden = 'fecha_creacion DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -282,7 +281,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [tipo_piel]);
+      const rows = await query(sql, [tipo_piel]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener fichas por tipo de piel: ${error.message}`);
@@ -297,7 +296,7 @@ class FichaCliente {
   static async obtenerConAlergias(opciones = {}) {
     const { orden = 'fecha_creacion DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -309,7 +308,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener clientes con alergias: ${error.message}`);
@@ -324,7 +323,7 @@ class FichaCliente {
   static async obtenerConCondicionesMedicas(opciones = {}) {
     const { orden = 'fecha_creacion DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT fc.*,
              CONCAT(c.nombre, ' ', c.apellido) as cliente_nombre,
              c.email as cliente_email,
@@ -336,7 +335,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener clientes con condiciones médicas: ${error.message}`);
@@ -348,7 +347,7 @@ class FichaCliente {
    * @returns {Promise<Object>} Estadísticas de fichas
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_fichas,
         COUNT(DISTINCT cliente_id) as clientes_con_ficha,
@@ -360,7 +359,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -372,7 +371,7 @@ class FichaCliente {
    * @returns {Promise<Array>} Estadísticas por tipo de piel
    */
   static async obtenerEstadisticasTipoPiel() {
-    const query = `
+    const sql = `
       SELECT 
         tipo_piel,
         COUNT(*) as cantidad
@@ -383,7 +382,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por tipo de piel: ${error.message}`);
@@ -396,7 +395,7 @@ class FichaCliente {
    * @returns {Promise<Array>} Alergias más comunes
    */
   static async obtenerAlergiasComunes(limite = 10) {
-    const query = `
+    const sql = `
       SELECT 
         alergia,
         COUNT(*) as cantidad
@@ -417,7 +416,7 @@ class FichaCliente {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener alergias comunes: ${error.message}`);
@@ -476,12 +475,12 @@ class FichaCliente {
   static async exportarCSV(opciones = {}) {
     const { incluir_datos_cliente = true } = opciones;
 
-    let query = `
+    let sql = `
       SELECT fc.*
     `;
 
     if (incluir_datos_cliente) {
-      query = `
+      sql = `
         SELECT fc.*,
                c.nombre as cliente_nombre,
                c.apellido as cliente_apellido,
@@ -491,14 +490,14 @@ class FichaCliente {
       `;
     }
 
-    query += `
+    sql += `
       FROM fichas_clientes fc
       JOIN clientes c ON fc.cliente_id = c.id
       ORDER BY fc.fecha_creacion DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar fichas: ${error.message}`);

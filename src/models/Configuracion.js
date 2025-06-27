@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de configuraciones del sistema
@@ -33,7 +33,7 @@ class Configuracion {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const [result] = await query(query, [
         clave, valor, descripcion, tipo, categoria, editable, visible
       ]);
 
@@ -52,7 +52,7 @@ class Configuracion {
     const query = 'SELECT * FROM configuraciones WHERE id = ?';
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const [rows] = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener configuración: ${error.message}`);
@@ -68,7 +68,7 @@ class Configuracion {
     const query = 'SELECT * FROM configuraciones WHERE clave = ?';
 
     try {
-      const [rows] = await pool.execute(query, [clave]);
+      const [rows] = await query(query, [clave]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener configuración por clave: ${error.message}`);
@@ -174,8 +174,8 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const [rows] = await query(query, [...params, limite, offset]);
+      const [countResult] = await query(countQuery, params);
 
       return {
         configuraciones: rows,
@@ -230,7 +230,7 @@ class Configuracion {
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const [result] = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Configuración no encontrada');
@@ -275,7 +275,7 @@ class Configuracion {
     const query = 'DELETE FROM configuraciones WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const [result] = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar configuración: ${error.message}`);
@@ -301,7 +301,7 @@ class Configuracion {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [searchTerm, searchTerm, searchTerm, limite]);
+      const [rows] = await query(query, [searchTerm, searchTerm, searchTerm, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar configuraciones: ${error.message}`);
@@ -332,7 +332,7 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener configuraciones por categoría: ${error.message}`);
@@ -362,7 +362,7 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener configuraciones editables: ${error.message}`);
@@ -392,7 +392,7 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener configuraciones visibles: ${error.message}`);
@@ -424,7 +424,7 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       
       const configuraciones = {};
       rows.forEach(row => {
@@ -454,7 +454,7 @@ class Configuracion {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías: ${error.message}`);

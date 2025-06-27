@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de correos enviados
@@ -23,14 +23,14 @@ class CorreoEnviado {
       usuario_id = null
     } = correo;
 
-    const query = `
+    const sql = `
       INSERT INTO correos_enviados 
       (destinatario, asunto, contenido, plantilla_id, estado, mensaje_error, fecha_envio, cita_id, usuario_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         destinatario, asunto, contenido, plantilla_id, estado, mensaje_error, 
         fecha_envio || new Date(), cita_id, usuario_id
       ]);
@@ -47,7 +47,7 @@ class CorreoEnviado {
    * @returns {Promise<Object|null>} Correo encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -67,7 +67,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener correo: ${error.message}`);
@@ -129,7 +129,7 @@ class CorreoEnviado {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -157,8 +157,8 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         correos: rows,
@@ -197,14 +197,14 @@ class CorreoEnviado {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE correos_enviados 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Correo no encontrado');
@@ -222,10 +222,10 @@ class CorreoEnviado {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM correos_enviados WHERE id = ?';
+    const sql = 'DELETE FROM correos_enviados WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar correo: ${error.message}`);
@@ -241,7 +241,7 @@ class CorreoEnviado {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 50 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -270,7 +270,7 @@ class CorreoEnviado {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -288,7 +288,7 @@ class CorreoEnviado {
   static async obtenerPorEstado(estado, opciones = {}) {
     const { orden = 'fecha_envio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -309,7 +309,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [estado]);
+      const rows = await query(sql, [estado]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por estado: ${error.message}`);
@@ -325,7 +325,7 @@ class CorreoEnviado {
   static async obtenerPorPlantilla(plantilla_id, opciones = {}) {
     const { orden = 'fecha_envio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -346,7 +346,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [plantilla_id]);
+      const rows = await query(sql, [plantilla_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por plantilla: ${error.message}`);
@@ -362,7 +362,7 @@ class CorreoEnviado {
   static async obtenerPorCita(cita_id, opciones = {}) {
     const { orden = 'fecha_envio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -383,7 +383,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cita_id]);
+      const rows = await query(sql, [cita_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por cita: ${error.message}`);
@@ -400,7 +400,7 @@ class CorreoEnviado {
   static async obtenerPorRangoFechas(fecha_inicio, fecha_fin, opciones = {}) {
     const { orden = 'fecha_envio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ce.*,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -421,7 +421,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por rango de fechas: ${error.message}`);
@@ -451,7 +451,7 @@ class CorreoEnviado {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_correos,
         COUNT(CASE WHEN estado = 'enviado' THEN 1 END) as enviados_exitosos,
@@ -466,7 +466,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -478,7 +478,7 @@ class CorreoEnviado {
    * @returns {Promise<Array>} Estadísticas por plantilla
    */
   static async obtenerEstadisticasPorPlantilla() {
-    const query = `
+    const sql = `
       SELECT pc.id,
              pc.nombre as plantilla_nombre,
              pc.tipo as plantilla_tipo,
@@ -493,7 +493,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por plantilla: ${error.message}`);
@@ -506,7 +506,7 @@ class CorreoEnviado {
    * @returns {Promise<Array>} Estadísticas por día
    */
   static async obtenerEstadisticasPorDia(dias = 30) {
-    const query = `
+    const sql = `
       SELECT 
         DATE(fecha_envio) as fecha,
         COUNT(*) as total_correos,
@@ -520,7 +520,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [dias]);
+      const rows = await query(sql, [dias]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por día: ${error.message}`);
@@ -600,7 +600,7 @@ class CorreoEnviado {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT ce.id, ce.destinatario, ce.asunto, ce.estado, ce.fecha_envio, ce.created_at,
              pc.nombre as plantilla_nombre, pc.tipo as plantilla_tipo,
              CONCAT(cu.nombre, ' ', cu.apellido) as cliente_nombre,
@@ -620,7 +620,7 @@ class CorreoEnviado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar correos: ${error.message}`);

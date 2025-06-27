@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de promociones
@@ -25,7 +25,7 @@ class Promocion {
       aplicable_a = 'Todos'
     } = promocion;
 
-    const query = `
+    const sql = `
       INSERT INTO promociones (
         nombre, descripcion, codigo, tipo, valor, fecha_inicio,
         fecha_fin, limite_usos, usos_actuales, activo, aplicable_a
@@ -33,11 +33,10 @@ class Promocion {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         nombre, descripcion, codigo, tipo, valor, fecha_inicio,
         fecha_fin, limite_usos, usos_actuales, activo, aplicable_a
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear promoción: ${error.message}`);
@@ -50,7 +49,7 @@ class Promocion {
    * @returns {Promise<Object|null>} Promoción encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -62,7 +61,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener promoción: ${error.message}`);
@@ -75,7 +74,7 @@ class Promocion {
    * @returns {Promise<Object|null>} Promoción encontrada
    */
   static async obtenerPorCodigo(codigo) {
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -87,7 +86,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [codigo]);
+      const rows = await query(sql, [codigo]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener promoción por código: ${error.message}`);
@@ -150,7 +149,7 @@ class Promocion {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -170,8 +169,8 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         promociones: rows,
@@ -214,14 +213,14 @@ class Promocion {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE promociones 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Promoción no encontrada');
@@ -239,10 +238,10 @@ class Promocion {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM promociones WHERE id = ?';
+    const sql = 'DELETE FROM promociones WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar promoción: ${error.message}`);
@@ -256,7 +255,7 @@ class Promocion {
    * @returns {Promise<Array>} Promociones encontradas
    */
   static async buscar(termino, limite = 20) {
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -273,7 +272,7 @@ class Promocion {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam, busquedaParam, limite]);
+      const rows = await query(sql, [busquedaParam, busquedaParam, busquedaParam, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar promociones: ${error.message}`);
@@ -290,7 +289,7 @@ class Promocion {
 
     const fecha = fecha_actual || new Date().toISOString().split('T')[0];
 
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -307,7 +306,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha, fecha, limite]);
+      const rows = await query(sql, [fecha, fecha, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener promociones activas: ${error.message}`);
@@ -331,7 +330,7 @@ class Promocion {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -345,7 +344,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener promociones por tipo: ${error.message}`);
@@ -369,7 +368,7 @@ class Promocion {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT p.*,
              COUNT(ps.servicio_id) as servicios_asociados,
              COUNT(pp.producto_id) as productos_asociados
@@ -383,7 +382,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener promociones por aplicable: ${error.message}`);
@@ -396,7 +395,7 @@ class Promocion {
    * @returns {Promise<Array>} Servicios asociados
    */
   static async obtenerServiciosAsociados(promocion_id) {
-    const query = `
+    const sql = `
       SELECT s.*
       FROM servicios s
       JOIN promocion_servicio ps ON s.id = ps.servicio_id
@@ -405,7 +404,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [promocion_id]);
+      const rows = await query(sql, [promocion_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener servicios asociados: ${error.message}`);
@@ -418,7 +417,7 @@ class Promocion {
    * @returns {Promise<Array>} Productos asociados
    */
   static async obtenerProductosAsociados(promocion_id) {
-    const query = `
+    const sql = `
       SELECT p.*
       FROM productos p
       JOIN promocion_producto pp ON p.id = pp.producto_id
@@ -427,7 +426,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [promocion_id]);
+      const rows = await query(sql, [promocion_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos asociados: ${error.message}`);
@@ -441,14 +440,14 @@ class Promocion {
    * @returns {Promise<Object>} Asociación creada
    */
   static async asociarServicio(promocion_id, servicio_id) {
-    const query = `
+    const sql = `
       INSERT INTO promocion_servicio (promocion_id, servicio_id)
       VALUES (?, ?)
       ON DUPLICATE KEY UPDATE promocion_id = promocion_id
     `;
 
     try {
-      const [result] = await pool.execute(query, [promocion_id, servicio_id]);
+      const result = await query(sql, [promocion_id, servicio_id]);
       return { promocion_id, servicio_id };
     } catch (error) {
       throw new Error(`Error al asociar servicio: ${error.message}`);
@@ -462,14 +461,14 @@ class Promocion {
    * @returns {Promise<Object>} Asociación creada
    */
   static async asociarProducto(promocion_id, producto_id) {
-    const query = `
+    const sql = `
       INSERT INTO promocion_producto (promocion_id, producto_id)
       VALUES (?, ?)
       ON DUPLICATE KEY UPDATE promocion_id = promocion_id
     `;
 
     try {
-      const [result] = await pool.execute(query, [promocion_id, producto_id]);
+      const result = await query(sql, [promocion_id, producto_id]);
       return { promocion_id, producto_id };
     } catch (error) {
       throw new Error(`Error al asociar producto: ${error.message}`);
@@ -483,10 +482,10 @@ class Promocion {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async desasociarServicio(promocion_id, servicio_id) {
-    const query = 'DELETE FROM promocion_servicio WHERE promocion_id = ? AND servicio_id = ?';
+    const sql = 'DELETE FROM promocion_servicio WHERE promocion_id = ? AND servicio_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [promocion_id, servicio_id]);
+      const result = await query(sql, [promocion_id, servicio_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al desasociar servicio: ${error.message}`);
@@ -500,10 +499,10 @@ class Promocion {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async desasociarProducto(promocion_id, producto_id) {
-    const query = 'DELETE FROM promocion_producto WHERE promocion_id = ? AND producto_id = ?';
+    const sql = 'DELETE FROM promocion_producto WHERE promocion_id = ? AND producto_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [promocion_id, producto_id]);
+      const result = await query(sql, [promocion_id, producto_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al desasociar producto: ${error.message}`);
@@ -516,14 +515,14 @@ class Promocion {
    * @returns {Promise<Object>} Promoción actualizada
    */
   static async incrementarUso(id) {
-    const query = `
+    const sql = `
       UPDATE promociones 
       SET usos_actuales = usos_actuales + 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND (limite_usos IS NULL OR usos_actuales < limite_usos)
     `;
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Promoción no encontrada o límite de usos alcanzado');
@@ -544,7 +543,7 @@ class Promocion {
   static async validarPromocion(codigo, fecha_actual = null) {
     const fecha = fecha_actual || new Date().toISOString().split('T')[0];
 
-    const query = `
+    const sql = `
       SELECT p.*
       FROM promociones p
       WHERE p.codigo = ? 
@@ -555,7 +554,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [codigo, fecha, fecha]);
+      const rows = await query(sql, [codigo, fecha, fecha]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al validar promoción: ${error.message}`);
@@ -567,7 +566,7 @@ class Promocion {
    * @returns {Promise<Object>} Estadísticas de promociones
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_promociones,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as promociones_activas,
@@ -581,7 +580,7 @@ class Promocion {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -595,16 +594,16 @@ class Promocion {
    * @returns {Promise<boolean>} Existe el código
    */
   static async existeCodigo(codigo, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM promociones WHERE codigo = ?';
+    let sql = 'SELECT COUNT(*) as total FROM promociones WHERE codigo = ?';
     let params = [codigo];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);

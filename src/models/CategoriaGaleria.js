@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de categorías de galería
@@ -29,16 +29,15 @@ class CategoriaGaleria {
       throw new Error('Ya existe una categoría con ese slug');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO categorias_galeria (nombre, descripcion, slug, imagen_portada, activo, orden)
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         nombre, descripcion, slugGenerado, imagen_portada, activo, orden
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear categoría de galería: ${error.message}`);
@@ -51,7 +50,7 @@ class CategoriaGaleria {
    * @returns {Promise<Object|null>} Categoría encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT cg.*,
              m.titulo as imagen_portada_titulo,
              m.archivo as imagen_portada_archivo,
@@ -67,7 +66,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener categoría de galería: ${error.message}`);
@@ -80,7 +79,7 @@ class CategoriaGaleria {
    * @returns {Promise<Object|null>} Categoría encontrada
    */
   static async obtenerPorSlug(slug) {
-    const query = `
+    const sql = `
       SELECT cg.*,
              m.titulo as imagen_portada_titulo,
              m.archivo as imagen_portada_archivo,
@@ -96,7 +95,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [slug]);
+      const rows = await query(sql, [slug]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener categoría por slug: ${error.message}`);
@@ -128,7 +127,7 @@ class CategoriaGaleria {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT cg.*,
              m.titulo as imagen_portada_titulo,
              m.archivo as imagen_portada_archivo,
@@ -152,8 +151,8 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         categorias: rows,
@@ -200,14 +199,14 @@ class CategoriaGaleria {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE categorias_galeria 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Categoría de galería no encontrada');
@@ -231,10 +230,10 @@ class CategoriaGaleria {
       throw new Error('No se puede eliminar la categoría porque tiene galerías asociadas');
     }
 
-    const query = 'DELETE FROM categorias_galeria WHERE id = ?';
+    const sql = 'DELETE FROM categorias_galeria WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar categoría: ${error.message}`);
@@ -250,7 +249,7 @@ class CategoriaGaleria {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT cg.*,
              m.titulo as imagen_portada_titulo,
              m.archivo as imagen_portada_archivo,
@@ -272,7 +271,7 @@ class CategoriaGaleria {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [searchTerm, searchTerm, searchTerm, limite]);
+      const rows = await query(sql, [searchTerm, searchTerm, searchTerm, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar categorías: ${error.message}`);
@@ -287,7 +286,7 @@ class CategoriaGaleria {
   static async obtenerActivas(opciones = {}) {
     const { orden = 'orden ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT cg.*,
              m.titulo as imagen_portada_titulo,
              m.archivo as imagen_portada_archivo,
@@ -304,7 +303,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener categorías activas: ${error.message}`);
@@ -318,14 +317,14 @@ class CategoriaGaleria {
    * @returns {Promise<Object>} Categoría actualizada
    */
   static async cambiarEstado(id, activo) {
-    const query = `
+    const sql = `
       UPDATE categorias_galeria 
       SET activo = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, [activo ? 1 : 0, id]);
+      const result = await query(sql, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Categoría de galería no encontrada');
@@ -354,7 +353,7 @@ class CategoriaGaleria {
       params.push(activo);
     }
 
-    const query = `
+    const sql = `
       SELECT g.*,
              CONCAT(eu.nombre, ' ', eu.apellido) as empleado_nombre,
              s.nombre as servicio_nombre,
@@ -371,7 +370,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener galerías por categoría: ${error.message}`);
@@ -385,10 +384,10 @@ class CategoriaGaleria {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async asignarGaleria(categoria_id, galeria_id) {
-    const query = 'INSERT INTO galeria_categoria (galeria_id, categoria_id) VALUES (?, ?)';
+    const sql = 'INSERT INTO galeria_categoria (galeria_id, categoria_id) VALUES (?, ?)';
 
     try {
-      const [result] = await pool.execute(query, [galeria_id, categoria_id]);
+      const result = await query(sql, [galeria_id, categoria_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al asignar galería a categoría: ${error.message}`);
@@ -402,10 +401,10 @@ class CategoriaGaleria {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async desasignarGaleria(categoria_id, galeria_id) {
-    const query = 'DELETE FROM galeria_categoria WHERE galeria_id = ? AND categoria_id = ?';
+    const sql = 'DELETE FROM galeria_categoria WHERE galeria_id = ? AND categoria_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [galeria_id, categoria_id]);
+      const result = await query(sql, [galeria_id, categoria_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al desasignar galería de categoría: ${error.message}`);
@@ -417,7 +416,7 @@ class CategoriaGaleria {
    * @returns {Promise<Object>} Estadísticas de categorías
    */
   static async obtenerEstadisticas() {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_categorias,
         COUNT(CASE WHEN activo = 1 THEN 1 END) as categorias_activas,
@@ -428,7 +427,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -440,7 +439,7 @@ class CategoriaGaleria {
    * @returns {Promise<Array>} Estadísticas por categoría
    */
   static async obtenerEstadisticasPorCategoria() {
-    const query = `
+    const sql = `
       SELECT cg.id,
              cg.nombre as categoria_nombre,
              cg.activo,
@@ -455,7 +454,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por categoría: ${error.message}`);
@@ -520,7 +519,7 @@ class CategoriaGaleria {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT cg.id, cg.nombre, cg.descripcion, cg.slug, cg.activo, cg.orden, cg.created_at,
              m.titulo as imagen_portada_titulo,
              COUNT(g.id) as total_galerias,
@@ -536,7 +535,7 @@ class CategoriaGaleria {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar categorías: ${error.message}`);

@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de ventas de productos
@@ -22,7 +22,7 @@ class VentaProducto {
       notas
     } = venta;
 
-    const query = `
+    const sql = `
       INSERT INTO ventas_productos (
         cliente_id, empleado_id, total, impuesto, metodo_pago_id,
         estado_pago_id, referencia_pago, notas
@@ -30,7 +30,7 @@ class VentaProducto {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         cliente_id, empleado_id, total, impuesto, metodo_pago_id,
         estado_pago_id, referencia_pago, notas
       ]);
@@ -47,7 +47,7 @@ class VentaProducto {
    * @returns {Promise<Object|null>} Venta encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.email as cliente_email,
@@ -68,7 +68,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener venta: ${error.message}`);
@@ -130,7 +130,7 @@ class VentaProducto {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
@@ -151,15 +151,15 @@ class VentaProducto {
       LIMIT ? OFFSET ?
     `;
 
-    const countQuery = `
+    const countSql = `
       SELECT COUNT(*) as total
       FROM ventas_productos vp
       ${whereClause}
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countSql, params);
 
       return {
         ventas: rows,
@@ -202,14 +202,14 @@ class VentaProducto {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE ventas_productos 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Venta no encontrada');
@@ -222,18 +222,46 @@ class VentaProducto {
   }
 
   /**
-   * Eliminar venta
+   * Actualizar estado de pago de una venta
+   * @param {number} id - ID de la venta
+   * @param {Object} datos - Datos del estado de pago
+   * @returns {Promise<Object>} Venta actualizada
+   */
+  static async actualizarEstadoPago(id, datos) {
+    const { estado_pago_id, referencia_pago, notas } = datos;
+
+    const sql = `
+      UPDATE ventas_productos 
+      SET estado_pago_id = ?, referencia_pago = ?, notas = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+
+    try {
+      const result = await query(sql, [estado_pago_id, referencia_pago, notas, id]);
+      
+      if (result.affectedRows === 0) {
+        throw new Error('Venta no encontrada');
+      }
+
+      return this.obtenerPorId(id);
+    } catch (error) {
+      throw new Error(`Error al actualizar estado de pago: ${error.message}`);
+    }
+  }
+
+  /**
+   * Cancelar venta
    * @param {number} id - ID de la venta
    * @returns {Promise<boolean>} Resultado de la operación
    */
-  static async eliminar(id) {
-    const query = 'DELETE FROM ventas_productos WHERE id = ?';
+  static async cancelar(id) {
+    const sql = 'DELETE FROM ventas_productos WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
-      throw new Error(`Error al eliminar venta: ${error.message}`);
+      throw new Error(`Error al cancelar venta: ${error.message}`);
     }
   }
 
@@ -246,7 +274,7 @@ class VentaProducto {
   static async obtenerPorCliente(cliente_id, opciones = {}) {
     const { limite = 50, orden = 'fecha_venta DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
              mp.nombre as metodo_pago_nombre,
@@ -265,7 +293,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id, limite]);
+      const rows = await query(sql, [cliente_id, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ventas por cliente: ${error.message}`);
@@ -294,7 +322,7 @@ class VentaProducto {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              mp.nombre as metodo_pago_nombre,
@@ -313,7 +341,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ventas por empleado: ${error.message}`);
@@ -326,7 +354,7 @@ class VentaProducto {
    * @returns {Promise<Array>} Detalles de la venta
    */
   static async obtenerDetalles(venta_id) {
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.marca as producto_marca,
@@ -338,7 +366,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [venta_id]);
+      const rows = await query(sql, [venta_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener detalles de venta: ${error.message}`);
@@ -355,7 +383,7 @@ class VentaProducto {
     const { producto_id, cantidad, precio_unitario, descuento = 0.00 } = producto;
     const subtotal = (precio_unitario - descuento) * cantidad;
 
-    const query = `
+    const sql = `
       INSERT INTO detalle_venta_producto (venta_id, producto_id, cantidad, precio_unitario, descuento, subtotal)
       VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
@@ -366,7 +394,7 @@ class VentaProducto {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         venta_id, producto_id, cantidad, precio_unitario, descuento, subtotal
       ]);
 
@@ -386,10 +414,10 @@ class VentaProducto {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async removerProducto(venta_id, producto_id) {
-    const query = 'DELETE FROM detalle_venta_producto WHERE venta_id = ? AND producto_id = ?';
+    const sql = 'DELETE FROM detalle_venta_producto WHERE venta_id = ? AND producto_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [venta_id, producto_id]);
+      const result = await query(sql, [venta_id, producto_id]);
       
       if (result.affectedRows > 0) {
         // Actualizar total de la venta
@@ -408,7 +436,7 @@ class VentaProducto {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async actualizarTotalVenta(venta_id) {
-    const query = `
+    const sql = `
       UPDATE ventas_productos 
       SET total = (
         SELECT COALESCE(SUM(subtotal), 0)
@@ -420,7 +448,7 @@ class VentaProducto {
     `;
 
     try {
-      const [result] = await pool.execute(query, [venta_id, venta_id]);
+      const result = await query(sql, [venta_id, venta_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al actualizar total: ${error.message}`);
@@ -455,7 +483,7 @@ class VentaProducto {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_ventas,
         SUM(vp.total) as monto_total,
@@ -470,7 +498,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -485,7 +513,7 @@ class VentaProducto {
   static async obtenerDelDia(fecha = null) {
     const fechaConsulta = fecha || new Date().toISOString().split('T')[0];
 
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
@@ -506,7 +534,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fechaConsulta]);
+      const rows = await query(sql, [fechaConsulta]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ventas del día: ${error.message}`);
@@ -516,11 +544,11 @@ class VentaProducto {
   /**
    * Obtener productos más vendidos
    * @param {number} limite - Límite de resultados
-   * @param {string} periodo - Período de análisis (dias)
+   * @param {number} periodo - Período en días
    * @returns {Promise<Array>} Productos más vendidos
    */
   static async obtenerProductosMasVendidos(limite = 10, periodo = 30) {
-    const query = `
+    const sql = `
       SELECT 
         p.id,
         p.nombre,
@@ -528,7 +556,7 @@ class VentaProducto {
         p.precio_venta,
         SUM(dvp.cantidad) as total_vendido,
         SUM(dvp.subtotal) as ingresos_totales,
-        COUNT(DISTINCT vp.id) as ventas_con_producto
+        COUNT(DISTINCT vp.id) as ventas_unicas
       FROM productos p
       JOIN detalle_venta_producto dvp ON p.id = dvp.producto_id
       JOIN ventas_productos vp ON dvp.venta_id = vp.id
@@ -540,7 +568,7 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [periodo, limite]);
+      const rows = await query(sql, [periodo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos más vendidos: ${error.message}`);
@@ -569,10 +597,11 @@ class VentaProducto {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+             mp.nombre as metodo_pago_nombre,
              ep.nombre as estado_pago_nombre,
              COUNT(dvp.producto_id) as total_productos
       FROM ventas_productos vp
@@ -580,6 +609,7 @@ class VentaProducto {
       LEFT JOIN usuarios u_cliente ON c.usuario_id = u_cliente.id
       JOIN empleados e ON vp.empleado_id = e.id
       JOIN usuarios u_empleado ON e.usuario_id = u_empleado.id
+      JOIN metodos_pago mp ON vp.metodo_pago_id = mp.id
       JOIN estados_pago ep ON vp.estado_pago_id = ep.id
       LEFT JOIN detalle_venta_producto dvp ON vp.id = dvp.venta_id
       WHERE ${whereConditions.join(' AND ')}
@@ -589,10 +619,10 @@ class VentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
-      throw new Error(`Error al obtener ventas por método: ${error.message}`);
+      throw new Error(`Error al obtener ventas por método de pago: ${error.message}`);
     }
   }
 }

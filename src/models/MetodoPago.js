@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de métodos de pago
@@ -11,15 +11,15 @@ class MetodoPago {
    * @returns {Promise<Object>} Método de pago creado
    */
   static async crear(metodoPago) {
-    const { nombre, descripcion, activo = 1 } = metodoPago;
+    const { nombre, descripcion, activo = true } = metodoPago;
 
-    const query = `
+    const sql = `
       INSERT INTO metodos_pago (nombre, descripcion, activo)
       VALUES (?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [nombre, descripcion, activo]);
+      const result = await query(sql, [nombre, descripcion, activo]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear método de pago: ${error.message}`);
@@ -32,7 +32,7 @@ class MetodoPago {
    * @returns {Promise<Object|null>} Método de pago encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT mp.*, 
              COUNT(p.id) as total_pagos,
              SUM(p.monto_total) as monto_total_procesado,
@@ -44,7 +44,7 @@ class MetodoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener método de pago: ${error.message}`);
@@ -57,32 +57,28 @@ class MetodoPago {
    * @returns {Promise<Array>} Lista de métodos de pago
    */
   static async obtenerTodos(opciones = {}) {
-    const { activo = null, incluirEstadisticas = false } = opciones;
+    const { soloActivos = false, incluirEstadisticas = false } = opciones;
 
-    let whereConditions = [];
-    let params = [];
-
-    if (activo !== null) {
-      whereConditions.push('mp.activo = ?');
-      params.push(activo);
-    }
-
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-
-    const query = `
+    let sql = `
       SELECT mp.*, 
              COUNT(p.id) as total_pagos,
              SUM(p.monto_total) as monto_total_procesado,
              AVG(p.monto_total) as monto_promedio
       FROM metodos_pago mp
       LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
-      ${whereClause}
+    `;
+
+    if (soloActivos) {
+      sql += ' WHERE mp.activo = true';
+    }
+
+    sql += `
       GROUP BY mp.id
       ORDER BY mp.nombre
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener métodos de pago: ${error.message}`);
@@ -112,14 +108,14 @@ class MetodoPago {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE metodos_pago 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Método de pago no encontrado');
@@ -143,33 +139,13 @@ class MetodoPago {
       throw new Error('No se puede eliminar un método de pago que tiene pagos asociados');
     }
 
-    const query = 'DELETE FROM metodos_pago WHERE id = ?';
+    const sql = 'DELETE FROM metodos_pago WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar método de pago: ${error.message}`);
-    }
-  }
-
-  /**
-   * Obtener métodos de pago activos
-   * @returns {Promise<Array>} Métodos de pago activos
-   */
-  static async obtenerActivos() {
-    const query = `
-      SELECT mp.*
-      FROM metodos_pago mp
-      WHERE mp.activo = 1
-      ORDER BY mp.nombre
-    `;
-
-    try {
-      const [rows] = await pool.execute(query);
-      return rows;
-    } catch (error) {
-      throw new Error(`Error al obtener métodos de pago activos: ${error.message}`);
     }
   }
 
@@ -179,7 +155,7 @@ class MetodoPago {
    * @returns {Promise<Array>} Métodos de pago encontrados
    */
   static async buscar(termino) {
-    const query = `
+    const sql = `
       SELECT mp.*, 
              COUNT(p.id) as total_pagos
       FROM metodos_pago mp
@@ -192,7 +168,7 @@ class MetodoPago {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await pool.execute(query, [busquedaParam, busquedaParam]);
+      const rows = await query(sql, [busquedaParam, busquedaParam]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar métodos de pago: ${error.message}`);
@@ -200,7 +176,7 @@ class MetodoPago {
   }
 
   /**
-   * Obtener pagos por método de pago
+   * Obtener pagos por método
    * @param {number} metodo_pago_id - ID del método de pago
    * @param {Object} opciones - Opciones adicionales
    * @returns {Promise<Array>} Pagos del método
@@ -221,7 +197,7 @@ class MetodoPago {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT p.*, 
              ep.nombre as estado_pago_nombre,
              c.fecha_hora_inicio,
@@ -240,7 +216,7 @@ class MetodoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos por método: ${error.message}`);
@@ -270,75 +246,23 @@ class MetodoPago {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
-        mp.id,
-        mp.nombre,
-        mp.activo,
-        COUNT(p.id) as total_pagos,
-        SUM(p.monto_total) as monto_total_procesado,
-        AVG(p.monto_total) as monto_promedio,
-        MIN(p.monto_total) as monto_minimo,
-        MAX(p.monto_total) as monto_maximo
-      FROM metodos_pago mp
-      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
-      ${whereClause}
-      GROUP BY mp.id
-      ORDER BY monto_total_procesado DESC
-    `;
-
-    try {
-      const [rows] = await pool.execute(query, params);
-      return rows;
-    } catch (error) {
-      throw new Error(`Error al obtener estadísticas: ${error.message}`);
-    }
-  }
-
-  /**
-   * Obtener método de pago más utilizado
-   * @param {Object} opciones - Opciones de filtrado
-   * @returns {Promise<Object>} Método de pago más utilizado
-   */
-  static async obtenerMasUtilizado(opciones = {}) {
-    const { fecha_inicio = null, fecha_fin = null } = opciones;
-
-    let whereConditions = [];
-    let params = [];
-
-    if (fecha_inicio) {
-      whereConditions.push('p.fecha_pago >= ?');
-      params.push(fecha_inicio);
-    }
-
-    if (fecha_fin) {
-      whereConditions.push('p.fecha_pago <= ?');
-      params.push(fecha_fin);
-    }
-
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-
-    const query = `
-      SELECT 
-        mp.id,
-        mp.nombre,
-        mp.descripcion,
+        COUNT(DISTINCT mp.id) as total_metodos,
+        COUNT(DISTINCT CASE WHEN mp.activo = true THEN mp.id END) as metodos_activos,
+        COUNT(DISTINCT CASE WHEN mp.activo = false THEN mp.id END) as metodos_inactivos,
         COUNT(p.id) as total_pagos,
         SUM(p.monto_total) as monto_total_procesado,
         AVG(p.monto_total) as monto_promedio
       FROM metodos_pago mp
-      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
-      ${whereClause}
-      GROUP BY mp.id
-      ORDER BY total_pagos DESC
-      LIMIT 1
+      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id ${whereClause}
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
-      return rows[0] || null;
+      const rows = await query(sql, params);
+      return rows[0];
     } catch (error) {
-      throw new Error(`Error al obtener método más utilizado: ${error.message}`);
+      throw new Error(`Error al obtener estadísticas: ${error.message}`);
     }
   }
 
@@ -346,26 +270,27 @@ class MetodoPago {
    * Obtener métodos de pago por período
    * @param {string} fecha_inicio - Fecha de inicio
    * @param {string} fecha_fin - Fecha de fin
-   * @returns {Promise<Array>} Métodos de pago por período
+   * @returns {Promise<Array>} Métodos de pago del período
    */
   static async obtenerPorPeriodo(fecha_inicio, fecha_fin) {
-    const query = `
+    const sql = `
       SELECT 
         mp.id,
         mp.nombre,
         mp.descripcion,
+        mp.activo,
         COUNT(p.id) as total_pagos,
         SUM(p.monto_total) as monto_total_procesado,
         AVG(p.monto_total) as monto_promedio
       FROM metodos_pago mp
-      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
-      WHERE p.fecha_pago BETWEEN ? AND ?
+      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id 
+        AND p.fecha_pago BETWEEN ? AND ?
       GROUP BY mp.id
       ORDER BY monto_total_procesado DESC
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener métodos por período: ${error.message}`);
@@ -379,16 +304,16 @@ class MetodoPago {
    * @returns {Promise<boolean>} Existe el método de pago
    */
   static async existe(nombre, excludeId = null) {
-    let query = 'SELECT COUNT(*) as total FROM metodos_pago WHERE nombre = ?';
+    let sql = 'SELECT COUNT(*) as total FROM metodos_pago WHERE nombre = ?';
     let params = [nombre];
 
     if (excludeId) {
-      query += ' AND id != ?';
+      sql += ' AND id != ?';
       params.push(excludeId);
     }
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);
@@ -400,7 +325,7 @@ class MetodoPago {
    * @returns {Promise<Array>} Métodos de pago sin uso
    */
   static async obtenerSinUso() {
-    const query = `
+    const sql = `
       SELECT mp.*, 
              COUNT(p.id) as total_pagos
       FROM metodos_pago mp
@@ -411,7 +336,7 @@ class MetodoPago {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener métodos sin uso: ${error.message}`);
@@ -419,29 +344,86 @@ class MetodoPago {
   }
 
   /**
-   * Activar/desactivar método de pago
-   * @param {number} id - ID del método de pago
-   * @param {boolean} activo - Estado activo
-   * @returns {Promise<Object>} Método de pago actualizado
+   * Obtener método de pago por nombre
+   * @param {string} nombre - Nombre del método de pago
+   * @returns {Promise<Object|null>} Método de pago encontrado
    */
-  static async cambiarEstado(id, activo) {
-    const query = `
-      UPDATE metodos_pago 
-      SET activo = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+  static async obtenerPorNombre(nombre) {
+    const sql = `
+      SELECT mp.*, 
+             COUNT(p.id) as total_pagos
+      FROM metodos_pago mp
+      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
+      WHERE mp.nombre = ?
+      GROUP BY mp.id
     `;
 
     try {
-      const [result] = await pool.execute(query, [activo ? 1 : 0, id]);
-      
-      if (result.affectedRows === 0) {
-        throw new Error('Método de pago no encontrado');
-      }
-
-      return this.obtenerPorId(id);
+      const rows = await query(sql, [nombre]);
+      return rows[0] || null;
     } catch (error) {
-      throw new Error(`Error al cambiar estado: ${error.message}`);
+      throw new Error(`Error al obtener método por nombre: ${error.message}`);
     }
+  }
+
+  /**
+   * Obtener resumen de métodos de pago
+   * @returns {Promise<Array>} Resumen de métodos de pago
+   */
+  static async obtenerResumen() {
+    const sql = `
+      SELECT 
+        mp.id,
+        mp.nombre,
+        mp.descripcion,
+        mp.activo,
+        COUNT(p.id) as total_pagos,
+        COUNT(CASE WHEN p.fecha_pago >= CURDATE() THEN 1 END) as pagos_hoy,
+        COUNT(CASE WHEN p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 END) as pagos_semana,
+        COUNT(CASE WHEN p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 END) as pagos_mes,
+        SUM(p.monto_total) as monto_total_procesado
+      FROM metodos_pago mp
+      LEFT JOIN pagos p ON mp.id = p.metodo_pago_id
+      GROUP BY mp.id
+      ORDER BY monto_total_procesado DESC
+    `;
+
+    try {
+      const rows = await query(sql);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener resumen: ${error.message}`);
+    }
+  }
+
+  /**
+   * Crear métodos de pago por defecto
+   * @returns {Promise<Array>} Métodos de pago creados
+   */
+  static async crearMetodosPorDefecto() {
+    const metodosPorDefecto = [
+      { nombre: 'Efectivo', descripcion: 'Pago en efectivo' },
+      { nombre: 'Tarjeta de Crédito', descripcion: 'Pago con tarjeta de crédito' },
+      { nombre: 'Tarjeta de Débito', descripcion: 'Pago con tarjeta de débito' },
+      { nombre: 'Transferencia Bancaria', descripcion: 'Transferencia bancaria' },
+      { nombre: 'PayPal', descripcion: 'Pago a través de PayPal' }
+    ];
+
+    const metodosCreados = [];
+
+    for (const metodo of metodosPorDefecto) {
+      try {
+        const existe = await this.existe(metodo.nombre);
+        if (!existe) {
+          const metodoCreado = await this.crear(metodo);
+          metodosCreados.push(metodoCreado);
+        }
+      } catch (error) {
+        console.error(`Error creando método ${metodo.nombre}:`, error);
+      }
+    }
+
+    return metodosCreados;
   }
 }
 

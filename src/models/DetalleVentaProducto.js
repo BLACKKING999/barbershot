@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de detalles de ventas de productos
@@ -22,16 +22,15 @@ class DetalleVentaProducto {
     // Calcular subtotal
     const subtotal = (precio_unitario * cantidad) - descuento;
 
-    const query = `
+    const sql = `
       INSERT INTO detalle_venta_producto (venta_id, producto_id, cantidad, precio_unitario, descuento, subtotal)
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         venta_id, producto_id, cantidad, precio_unitario, descuento, subtotal
       ]);
-
       return this.obtenerPorId(venta_id, producto_id);
     } catch (error) {
       throw new Error(`Error al crear detalle de venta: ${error.message}`);
@@ -45,7 +44,7 @@ class DetalleVentaProducto {
    * @returns {Promise<Object|null>} Detalle encontrado
    */
   static async obtenerPorId(venta_id, producto_id) {
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -67,7 +66,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [venta_id, producto_id]);
+      const rows = await query(sql, [venta_id, producto_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener detalle de venta: ${error.message}`);
@@ -117,7 +116,7 @@ class DetalleVentaProducto {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -148,8 +147,8 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         detalles: rows,
@@ -205,14 +204,14 @@ class DetalleVentaProducto {
     }
 
     valores.push(venta_id, producto_id);
-    const query = `
+    const sql = `
       UPDATE detalle_venta_producto 
-      SET ${camposActualizar.join(', ')}
+      SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE venta_id = ? AND producto_id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Detalle de venta no encontrado');
@@ -231,10 +230,10 @@ class DetalleVentaProducto {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(venta_id, producto_id) {
-    const query = 'DELETE FROM detalle_venta_producto WHERE venta_id = ? AND producto_id = ?';
+    const sql = 'DELETE FROM detalle_venta_producto WHERE venta_id = ? AND producto_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [venta_id, producto_id]);
+      const result = await query(sql, [venta_id, producto_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar detalle: ${error.message}`);
@@ -250,7 +249,7 @@ class DetalleVentaProducto {
   static async obtenerPorVenta(venta_id, opciones = {}) {
     const { orden = 'producto_nombre ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -273,7 +272,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [venta_id]);
+      const rows = await query(sql, [venta_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener detalles por venta: ${error.message}`);
@@ -289,7 +288,7 @@ class DetalleVentaProducto {
   static async obtenerPorProducto(producto_id, opciones = {}) {
     const { orden = 'fecha_venta DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -312,7 +311,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [producto_id]);
+      const rows = await query(sql, [producto_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener detalles por producto: ${error.message}`);
@@ -329,7 +328,7 @@ class DetalleVentaProducto {
   static async obtenerPorRangoFechas(fecha_inicio, fecha_fin, opciones = {}) {
     const { orden = 'fecha_venta DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -352,7 +351,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(sql, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener detalles por rango de fechas: ${error.message}`);
@@ -368,7 +367,7 @@ class DetalleVentaProducto {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 50 } = opciones;
 
-    const query = `
+    const sql = `
       SELECT dvp.*,
              p.nombre as producto_nombre,
              p.descripcion as producto_descripcion,
@@ -399,7 +398,7 @@ class DetalleVentaProducto {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(sql, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -431,7 +430,7 @@ class DetalleVentaProducto {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_detalles,
         COUNT(DISTINCT dvp.venta_id) as ventas_unicas,
@@ -447,7 +446,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -460,7 +459,7 @@ class DetalleVentaProducto {
    * @returns {Promise<Array>} Productos más vendidos
    */
   static async obtenerProductosMasVendidos(limite = 10) {
-    const query = `
+    const sql = `
       SELECT p.id,
              p.nombre as producto_nombre,
              p.marca as producto_marca,
@@ -478,7 +477,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener productos más vendidos: ${error.message}`);
@@ -490,7 +489,7 @@ class DetalleVentaProducto {
    * @returns {Promise<Array>} Estadísticas por categoría
    */
   static async obtenerEstadisticasPorCategoria() {
-    const query = `
+    const sql = `
       SELECT cp.id,
              cp.nombre as categoria_nombre,
              COUNT(dvp.venta_id) as ventas_realizadas,
@@ -505,7 +504,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por categoría: ${error.message}`);
@@ -542,10 +541,10 @@ class DetalleVentaProducto {
    * @returns {Promise<number>} Cantidad de detalles eliminados
    */
   static async eliminarDetallesVenta(venta_id) {
-    const query = 'DELETE FROM detalle_venta_producto WHERE venta_id = ?';
+    const sql = 'DELETE FROM detalle_venta_producto WHERE venta_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [venta_id]);
+      const result = await query(sql, [venta_id]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al eliminar detalles de la venta: ${error.message}`);
@@ -590,7 +589,7 @@ class DetalleVentaProducto {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT dvp.venta_id, dvp.producto_id, dvp.cantidad, dvp.precio_unitario, 
              dvp.descuento, dvp.subtotal, vp.fecha_venta,
              p.nombre as producto_nombre, p.marca as producto_marca,
@@ -610,7 +609,7 @@ class DetalleVentaProducto {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar detalles: ${error.message}`);

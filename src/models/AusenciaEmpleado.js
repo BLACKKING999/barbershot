@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de ausencias de empleados
@@ -30,16 +30,15 @@ class AusenciaEmpleado {
       throw new Error('Motivo no válido');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO ausencias_empleados (empleado_id, fecha_inicio, fecha_fin, motivo, descripcion)
       VALUES (?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         empleado_id, fecha_inicio, fecha_fin, motivo, descripcion
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear ausencia: ${error.message}`);
@@ -52,7 +51,7 @@ class AusenciaEmpleado {
    * @returns {Promise<Object|null>} Ausencia encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -64,7 +63,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener ausencia: ${error.message}`);
@@ -114,7 +113,7 @@ class AusenciaEmpleado {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -134,8 +133,8 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         ausencias: rows,
@@ -181,14 +180,14 @@ class AusenciaEmpleado {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE ausencias_empleados 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Ausencia no encontrada');
@@ -206,10 +205,10 @@ class AusenciaEmpleado {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM ausencias_empleados WHERE id = ?';
+    const sql = 'DELETE FROM ausencias_empleados WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar ausencia: ${error.message}`);
@@ -225,7 +224,7 @@ class AusenciaEmpleado {
   static async obtenerPorEmpleado(empleado_id, opciones = {}) {
     const { orden = 'fecha_inicio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -238,7 +237,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ausencias por empleado: ${error.message}`);
@@ -254,7 +253,7 @@ class AusenciaEmpleado {
   static async obtenerPorMotivo(motivo, opciones = {}) {
     const { orden = 'fecha_inicio DESC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -267,7 +266,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [motivo]);
+      const rows = await query(sql, [motivo]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ausencias por motivo: ${error.message}`);
@@ -282,7 +281,7 @@ class AusenciaEmpleado {
   static async obtenerActivas(opciones = {}) {
     const { orden = 'fecha_inicio ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -295,7 +294,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ausencias activas: ${error.message}`);
@@ -310,7 +309,7 @@ class AusenciaEmpleado {
   static async obtenerFuturas(opciones = {}) {
     const { orden = 'fecha_inicio ASC' } = opciones;
 
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -323,7 +322,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(sql);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener ausencias futuras: ${error.message}`);
@@ -337,7 +336,7 @@ class AusenciaEmpleado {
    * @returns {Promise<Object|null>} Ausencia si existe
    */
   static async verificarAusencia(empleado_id, fecha) {
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo
@@ -349,7 +348,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id, fecha]);
+      const rows = await query(sql, [empleado_id, fecha]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al verificar ausencia: ${error.message}`);
@@ -373,7 +372,7 @@ class AusenciaEmpleado {
       params.push(motivo);
     }
 
-    const query = `
+    const sql = `
       SELECT ae.*,
              CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
              e.titulo as empleado_titulo,
@@ -386,7 +385,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados ausentes: ${error.message}`);
@@ -416,7 +415,7 @@ class AusenciaEmpleado {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_ausencias,
         COUNT(DISTINCT empleado_id) as empleados_con_ausencias,
@@ -431,7 +430,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -460,7 +459,7 @@ class AusenciaEmpleado {
       params.push(fecha_fin);
     }
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_ausencias,
         SUM(DATEDIFF(fecha_fin, fecha_inicio) + 1) as total_dias_ausencia,
@@ -474,7 +473,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del empleado: ${error.message}`);
@@ -504,7 +503,7 @@ class AusenciaEmpleado {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         motivo,
         COUNT(*) as cantidad_ausencias,
@@ -517,7 +516,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por motivo: ${error.message}`);
@@ -565,13 +564,13 @@ class AusenciaEmpleado {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    let query = `
+    let sql = `
       SELECT ae.id, ae.fecha_inicio, ae.fecha_fin, ae.motivo, ae.descripcion,
              DATEDIFF(ae.fecha_fin, ae.fecha_inicio) + 1 as dias_ausencia
     `;
 
     if (incluir_empleado) {
-      query = `
+      sql = `
         SELECT ae.id, ae.fecha_inicio, ae.fecha_fin, ae.motivo, ae.descripcion,
                DATEDIFF(ae.fecha_fin, ae.fecha_inicio) + 1 as dias_ausencia,
                CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
@@ -579,7 +578,7 @@ class AusenciaEmpleado {
       `;
     }
 
-    query += `
+    sql += `
       FROM ausencias_empleados ae
       JOIN empleados e ON ae.empleado_id = e.id
       JOIN usuarios u ON e.usuario_id = u.id
@@ -588,7 +587,7 @@ class AusenciaEmpleado {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar ausencias: ${error.message}`);

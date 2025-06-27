@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de reseñas
@@ -25,17 +25,16 @@ class Resena {
       throw new Error('La calificación debe estar entre 1 y 5');
     }
 
-    const query = `
+    const sql = `
       INSERT INTO resenas (
         cliente_id, empleado_id, cita_id, calificacion, comentario, publico
       ) VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(sql, [
         cliente_id, empleado_id, cita_id, calificacion, comentario, publico
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear reseña: ${error.message}`);
@@ -48,7 +47,7 @@ class Resena {
    * @returns {Promise<Object|null>} Reseña encontrada
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -66,7 +65,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener reseña: ${error.message}`);
@@ -128,7 +127,7 @@ class Resena {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -153,8 +152,8 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         resenas: rows,
@@ -201,14 +200,14 @@ class Resena {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE resenas 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const result = await query(sql, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Reseña no encontrada');
@@ -226,10 +225,10 @@ class Resena {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM resenas WHERE id = ?';
+    const sql = 'DELETE FROM resenas WHERE id = ?';
 
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar reseña: ${error.message}`);
@@ -257,7 +256,7 @@ class Resena {
       params.push(publico);
     }
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
              u_empleado.foto_perfil as empleado_foto,
@@ -272,7 +271,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas por cliente: ${error.message}`);
@@ -306,7 +305,7 @@ class Resena {
       params.push(calificacion);
     }
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -321,7 +320,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas por empleado: ${error.message}`);
@@ -354,7 +353,7 @@ class Resena {
       params.push(calificacion);
     }
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -371,7 +370,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas públicas: ${error.message}`);
@@ -416,7 +415,7 @@ class Resena {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_resenas,
         AVG(calificacion) as calificacion_promedio,
@@ -433,7 +432,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(sql, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -446,7 +445,7 @@ class Resena {
    * @returns {Promise<Object>} Estadísticas del empleado
    */
   static async obtenerEstadisticasEmpleado(empleado_id) {
-    const query = `
+    const sql = `
       SELECT 
         COUNT(*) as total_resenas,
         AVG(calificacion) as calificacion_promedio,
@@ -462,7 +461,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const rows = await query(sql, [empleado_id]);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del empleado: ${error.message}`);
@@ -478,7 +477,7 @@ class Resena {
   static async obtenerRecientes(limite = 10, soloPublicas = true) {
     const whereClause = soloPublicas ? 'WHERE r.publico = 1' : '';
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -495,7 +494,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [limite]);
+      const rows = await query(sql, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas recientes: ${error.message}`);
@@ -524,7 +523,7 @@ class Resena {
       params.push(publico);
     }
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -541,7 +540,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas por calificación: ${error.message}`);
@@ -555,14 +554,14 @@ class Resena {
    * @returns {Promise<Object>} Reseña actualizada
    */
   static async responder(id, respuesta) {
-    const query = `
+    const sql = `
       UPDATE resenas 
       SET respuesta = ?, fecha_respuesta = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, [respuesta, id]);
+      const result = await query(sql, [respuesta, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Reseña no encontrada');
@@ -581,10 +580,10 @@ class Resena {
    * @returns {Promise<boolean>} Ya reseñó la cita
    */
   static async clienteYaReseno(cliente_id, cita_id) {
-    const query = 'SELECT COUNT(*) as total FROM resenas WHERE cliente_id = ? AND cita_id = ?';
+    const sql = 'SELECT COUNT(*) as total FROM resenas WHERE cliente_id = ? AND cita_id = ?';
 
     try {
-      const [rows] = await pool.execute(query, [cliente_id, cita_id]);
+      const rows = await query(sql, [cliente_id, cita_id]);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar reseña: ${error.message}`);
@@ -606,7 +605,7 @@ class Resena {
       params.push(empleado_id);
     }
 
-    const query = `
+    const sql = `
       SELECT r.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
              u_cliente.foto_perfil as cliente_foto,
@@ -623,7 +622,7 @@ class Resena {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(sql, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener reseñas pendientes: ${error.message}`);

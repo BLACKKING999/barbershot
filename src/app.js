@@ -14,6 +14,12 @@ const { initializeFirebaseAdmin } = require('./config/firebaseAdmin');
 const authRoutes = require('./routes/authRoutes');
 const empleadoRoutes = require('./routes/empleadoRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
+const citaRoutes = require('./routes/citaRoutes');
+const productoRoutes = require('./routes/productoRoutes');
+const categoriaRoutes = require('./routes/categoriaRoutes');
+const ventaRoutes = require('./routes/ventaRoutes');
+const especialidadRoutes = require('./routes/especialidadRoutes');
 
 // Importar middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -63,7 +69,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
@@ -99,8 +105,16 @@ const inicializarServicios = async () => {
 
 // Rutas de autenticación con rate limiting específico
 app.use('/api/auth', authLimiter, authRoutes);
+
+// Rutas principales de la aplicación
 app.use('/api/empleados', empleadoRoutes);
 app.use('/api/servicios', servicioRoutes);
+app.use('/api/clientes', clienteRoutes);
+app.use('/api/citas', citaRoutes);
+app.use('/api/productos', productoRoutes);
+app.use('/api/categorias', categoriaRoutes);
+app.use('/api/ventas', ventaRoutes);
+app.use('/api/especialidades', especialidadRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {
@@ -109,7 +123,18 @@ app.get('/api/health', (req, res) => {
     mensaje: 'API de Barbería funcionando correctamente',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      auth: '/api/auth',
+      empleados: '/api/empleados',
+      servicios: '/api/servicios',
+      clientes: '/api/clientes',
+      citas: '/api/citas',
+      productos: '/api/productos',
+      categorias: '/api/categorias',
+      ventas: '/api/ventas',
+      especialidades: '/api/especialidades'
+    }
   });
 });
 
@@ -120,6 +145,14 @@ app.get('/', (req, res) => {
     mensaje: 'Bienvenido a la API de Barbería',
     endpoints: {
       auth: '/api/auth',
+      empleados: '/api/empleados',
+      servicios: '/api/servicios',
+      clientes: '/api/clientes',
+      citas: '/api/citas',
+      productos: '/api/productos',
+      categorias: '/api/categorias',
+      ventas: '/api/ventas',
+      especialidades: '/api/especialidades',
       health: '/api/health'
     },
     documentation: 'Documentación disponible en /api/docs'
@@ -161,6 +194,14 @@ const iniciarServidor = async () => {
       console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
       console.log(`📱 API disponible en http://localhost:${PORT}`);
       console.log(`🔐 Endpoints de autenticación en http://localhost:${PORT}/api/auth`);
+      console.log(`👥 Gestión de empleados en http://localhost:${PORT}/api/empleados`);
+      console.log(`✂️ Gestión de servicios en http://localhost:${PORT}/api/servicios`);
+      console.log(`👤 Gestión de clientes en http://localhost:${PORT}/api/clientes`);
+      console.log(`📅 Gestión de citas en http://localhost:${PORT}/api/citas`);
+      console.log(`🛍️ Gestión de productos en http://localhost:${PORT}/api/productos`);
+      console.log(`📂 Gestión de categorías en http://localhost:${PORT}/api/categorias`);
+      console.log(`💰 Gestión de ventas en http://localhost:${PORT}/api/ventas`);
+      console.log(`🎯 Gestión de especialidades en http://localhost:${PORT}/api/especialidades`);
       console.log(`💚 Health check en http://localhost:${PORT}/api/health`);
     });
   } catch (error) {

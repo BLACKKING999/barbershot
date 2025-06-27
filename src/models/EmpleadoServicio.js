@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de relaciones empleado-servicio
@@ -29,7 +29,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, servicio_id, puede_realizar]);
+      const [result] = await query(query, [empleado_id, servicio_id, puede_realizar]);
       return this.obtenerPorId(empleado_id, servicio_id);
     } catch (error) {
       throw new Error(`Error al crear relación empleado-servicio: ${error.message}`);
@@ -61,7 +61,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id, servicio_id]);
+      const [rows] = await query(query, [empleado_id, servicio_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener relación empleado-servicio: ${error.message}`);
@@ -141,8 +141,8 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const [rows] = await query(query, [...params, limite, offset]);
+      const [countResult] = await query(countQuery, params);
 
       return {
         relaciones: rows,
@@ -189,7 +189,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
+      const [result] = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Relación empleado-servicio no encontrada');
@@ -211,7 +211,7 @@ class EmpleadoServicio {
     const query = 'DELETE FROM empleado_servicio WHERE empleado_id = ? AND servicio_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id, servicio_id]);
+      const [result] = await query(query, [empleado_id, servicio_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar relación: ${error.message}`);
@@ -254,7 +254,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener servicios por empleado: ${error.message}`);
@@ -297,7 +297,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados por servicio: ${error.message}`);
@@ -329,7 +329,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [servicio_id]);
+      const [rows] = await query(query, [servicio_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener empleados disponibles: ${error.message}`);
@@ -371,7 +371,7 @@ class EmpleadoServicio {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const [rows] = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -396,7 +396,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -422,7 +422,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [empleado_id]);
+      const [rows] = await query(query, [empleado_id]);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas del empleado: ${error.message}`);
@@ -448,7 +448,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const [rows] = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por servicio: ${error.message}`);
@@ -489,7 +489,7 @@ class EmpleadoServicio {
     const query = 'DELETE FROM empleado_servicio WHERE empleado_id = ?';
 
     try {
-      const [result] = await pool.execute(query, [empleado_id]);
+      const [result] = await query(query, [empleado_id]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al eliminar servicios del empleado: ${error.message}`);
@@ -557,7 +557,7 @@ class EmpleadoServicio {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const [rows] = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar relaciones: ${error.message}`);

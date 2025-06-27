@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 /**
  * Modelo para la gestión de logs del sistema
@@ -22,16 +22,18 @@ class Log {
       fecha_creacion = new Date()
     } = log;
 
-    const query = `
-      INSERT INTO logs (nivel, mensaje, contexto, usuario_id, ip, user_agent, datos_adicionales, fecha_creacion)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    const sql = `
+      INSERT INTO logs (
+        nivel, mensaje, contexto, usuario_id, ip, user_agent, 
+        datos_adicionales, fecha_creacion
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-      const [result] = await pool.execute(query, [
-        nivel, mensaje, contexto, usuario_id, ip, user_agent, datos_adicionales, fecha_creacion
+      const result = await query(sql, [
+        nivel, mensaje, contexto, usuario_id, ip, user_agent, 
+        datos_adicionales, fecha_creacion
       ]);
-
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear log: ${error.message}`);

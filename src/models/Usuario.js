@@ -1,391 +1,407 @@
 const { query } = require('../config/database');
+const bcrypt = require('bcryptjs');
 
 /**
- * Modelo para la tabla usuarios
- * Maneja todas las operaciones CRUD y consultas relacionadas con usuarios
+ * Modelo para la gestión de usuarios
+ * Maneja operaciones CRUD, autenticación y consultas relacionadas con usuarios
  */
 class Usuario {
   /**
    * Crear un nuevo usuario
-   * @param {Object} userData - Datos del usuario
-   * @returns {Object} - Usuario creado
+   * @param {Object} usuarioData - Datos del usuario
+   * @returns {Promise<Object>} Usuario creado
    */
-  static async crear(userData) {
+  static async crear(usuarioData) {
+    const {
+      nombre,
+      apellido,
+      email,
+      password,
+      telefono,
+      rol_id,
+      foto_perfil = null,
+      activo = true
+    } = usuarioData;
+
+    // Encriptar contraseña
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    const sql = `
+      INSERT INTO usuarios (
+        nombre, apellido, email, password, telefono, rol_id, foto_perfil, activo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      nombre, apellido, email, hashedPassword, telefono, rol_id, foto_perfil, activo
+    ];
+
     try {
-      const {
-        firebase_uid,
-        email,
-        nombre,
-        apellido,
-        telefono,
-        foto_perfil,
-        rol_id,
-        activo = 1,
-        notificacion_correo = 1,
-        notificacion_push = 0,
-        notificacion_sms = 0,
-        recordatorio_horas_antes = 24
-      } = userData;
-
-      const sql = `
-        INSERT INTO usuarios (
-          firebase_uid, email, nombre, apellido, telefono, foto_perfil,
-          rol_id, activo, notificacion_correo, notificacion_push,
-          notificacion_sms, recordatorio_horas_antes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      const params = [
-        firebase_uid, email, nombre, apellido, telefono, foto_perfil,
-        rol_id, activo, notificacion_correo, notificacion_push,
-        notificacion_sms, recordatorio_horas_antes
-      ];
-
       const result = await query(sql, params);
-      return { id: result.insertId, ...userData };
+      return this.obtenerPorId(result.insertId);
     } catch (error) {
-      console.error('Error creando usuario:', error);
-      throw error;
+      throw new Error(`Error al crear usuario: ${error.message}`);
     }
   }
 
   /**
    * Obtener usuario por ID
    * @param {number} id - ID del usuario
-   * @returns {Object|null} - Usuario encontrado o null
+   * @returns {Promise<Object|null>} Usuario encontrado
    */
   static async obtenerPorId(id) {
-    try {
-      const sql = `
-        SELECT u.*, r.nombre as rol_nombre, r.descripcion as rol_descripcion
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-        WHERE u.id = ?
-      `;
-      
-      const usuarios = await query(sql, [id]);
-      return usuarios.length > 0 ? usuarios[0] : null;
-    } catch (error) {
-      console.error('Error obteniendo usuario por ID:', error);
-      throw error;
-    }
-  }
+    const sql = `
+      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      FROM usuarios u
+      INNER JOIN roles r ON u.rol_id = r.id
+      WHERE u.id = ?
+    `;
 
-  /**
-   * Obtener usuario por Firebase UID
-   * @param {string} firebase_uid - Firebase UID del usuario
-   * @returns {Object|null} - Usuario encontrado o null
-   */
-  static async obtenerPorFirebaseUid(firebase_uid) {
     try {
-      const sql = `
-        SELECT u.*, r.nombre as rol_nombre, r.descripcion as rol_descripcion
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-        WHERE u.firebase_uid = ?
-      `;
-      
-      const usuarios = await query(sql, [firebase_uid]);
-      return usuarios.length > 0 ? usuarios[0] : null;
+      const rows = await query(sql, [id]);
+      if (rows[0]) {
+        rows[0].rol_permisos = JSON.parse(rows[0].rol_permisos || '[]');
+      }
+      return rows[0] || null;
     } catch (error) {
-      console.error('Error obteniendo usuario por Firebase UID:', error);
-      throw error;
+      throw new Error(`Error al obtener usuario: ${error.message}`);
     }
   }
 
   /**
    * Obtener usuario por email
    * @param {string} email - Email del usuario
-   * @returns {Object|null} - Usuario encontrado o null
+   * @returns {Promise<Object|null>} Usuario encontrado
    */
   static async obtenerPorEmail(email) {
+    const sql = `
+      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      FROM usuarios u
+      INNER JOIN roles r ON u.rol_id = r.id
+      WHERE u.email = ?
+    `;
+
     try {
-      const sql = `
-        SELECT u.*, r.nombre as rol_nombre, r.descripcion as rol_descripcion
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-        WHERE u.email = ?
-      `;
-      
-      const usuarios = await query(sql, [email]);
-      return usuarios.length > 0 ? usuarios[0] : null;
+      const rows = await query(sql, [email]);
+      if (rows[0]) {
+        rows[0].rol_permisos = JSON.parse(rows[0].rol_permisos || '[]');
+      }
+      return rows[0] || null;
     } catch (error) {
-      console.error('Error obteniendo usuario por email:', error);
-      throw error;
+      throw new Error(`Error al obtener usuario por email: ${error.message}`);
     }
   }
 
   /**
-   * Obtener todos los usuarios con filtros opcionales
+   * Obtener todos los usuarios
    * @param {Object} filtros - Filtros opcionales
-   * @returns {Array} - Lista de usuarios
+   * @returns {Promise<Array>} Lista de usuarios
    */
   static async obtenerTodos(filtros = {}) {
-    try {
-      let sql = `
-        SELECT u.*, r.nombre as rol_nombre, r.descripcion as rol_descripcion
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-      `;
+    let sql = `
+      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      FROM usuarios u
+      INNER JOIN roles r ON u.rol_id = r.id
+    `;
+    
+    const params = [];
+    const condiciones = [];
+
+    // Aplicar filtros
+    if (filtros.activo !== undefined) {
+      condiciones.push('u.activo = ?');
+      params.push(filtros.activo);
+    }
+
+    if (filtros.rol_id) {
+      condiciones.push('u.rol_id = ?');
+      params.push(filtros.rol_id);
+    }
+
+    if (filtros.busqueda) {
+      condiciones.push('(u.nombre LIKE ? OR u.apellido LIKE ? OR u.email LIKE ?)');
+      const busqueda = `%${filtros.busqueda}%`;
+      params.push(busqueda, busqueda, busqueda);
+    }
+
+    if (condiciones.length > 0) {
+      sql += ' WHERE ' + condiciones.join(' AND ');
+    }
+
+    // Ordenamiento
+    sql += ' ORDER BY u.nombre, u.apellido';
+
+    // Paginación
+    if (filtros.limite) {
+      sql += ' LIMIT ?';
+      params.push(filtros.limite);
       
-      const params = [];
-      const condiciones = [];
-
-      // Aplicar filtros
-      if (filtros.activo !== undefined) {
-        condiciones.push('u.activo = ?');
-        params.push(filtros.activo);
+      if (filtros.offset) {
+        sql += ' OFFSET ?';
+        params.push(filtros.offset);
       }
+    }
 
-      if (filtros.rol_id) {
-        condiciones.push('u.rol_id = ?');
-        params.push(filtros.rol_id);
-      }
+    try {
+      const rows = await query(sql, params);
+      
+      // Parsear permisos para cada usuario
+      rows.forEach(usuario => {
+        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
+      });
 
-      if (filtros.busqueda) {
-        condiciones.push('(u.nombre LIKE ? OR u.apellido LIKE ? OR u.email LIKE ?)');
-        const busqueda = `%${filtros.busqueda}%`;
-        params.push(busqueda, busqueda, busqueda);
-      }
-
-      if (condiciones.length > 0) {
-        sql += ' WHERE ' + condiciones.join(' AND ');
-      }
-
-      // Ordenamiento
-      sql += ' ORDER BY u.fecha_registro DESC';
-
-      // Paginación
-      if (filtros.limite) {
-        sql += ' LIMIT ?';
-        params.push(filtros.limite);
-        
-        if (filtros.offset) {
-          sql += ' OFFSET ?';
-          params.push(filtros.offset);
-        }
-      }
-
-      const usuarios = await query(sql, params);
-      return usuarios;
+      return rows;
     } catch (error) {
-      console.error('Error obteniendo usuarios:', error);
-      throw error;
+      throw new Error(`Error al obtener usuarios: ${error.message}`);
     }
   }
 
   /**
    * Actualizar usuario
    * @param {number} id - ID del usuario
-   * @param {Object} userData - Datos a actualizar
-   * @returns {boolean} - True si se actualizó correctamente
+   * @param {Object} usuarioData - Datos a actualizar
+   * @returns {Promise<Object>} Usuario actualizado
    */
-  static async actualizar(id, userData) {
+  static async actualizar(id, usuarioData) {
+    const camposPermitidos = [
+      'nombre', 'apellido', 'email', 'telefono', 'rol_id', 'foto_perfil', 'activo'
+    ];
+
+    const camposActualizar = [];
+    const valores = [];
+
+    // Filtrar solo campos permitidos
+    for (const campo of camposPermitidos) {
+      if (usuarioData[campo] !== undefined) {
+        camposActualizar.push(`${campo} = ?`);
+        valores.push(usuarioData[campo]);
+      }
+    }
+
+    // Manejar actualización de contraseña
+    if (usuarioData.password) {
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(usuarioData.password, saltRounds);
+      camposActualizar.push('password = ?');
+      valores.push(hashedPassword);
+    }
+
+    if (camposActualizar.length === 0) {
+      throw new Error('No hay campos válidos para actualizar');
+    }
+
+    valores.push(id);
+    const sql = `UPDATE usuarios SET ${camposActualizar.join(', ')} WHERE id = ?`;
+    
     try {
-      const camposPermitidos = [
-        'nombre', 'apellido', 'telefono', 'foto_perfil', 'rol_id',
-        'activo', 'notificacion_correo', 'notificacion_push',
-        'notificacion_sms', 'recordatorio_horas_antes'
-      ];
-
-      const camposActualizar = [];
-      const valores = [];
-
-      // Filtrar solo campos permitidos
-      for (const campo of camposPermitidos) {
-        if (userData[campo] !== undefined) {
-          camposActualizar.push(`${campo} = ?`);
-          valores.push(userData[campo]);
-        }
-      }
-
-      if (camposActualizar.length === 0) {
-        throw new Error('No hay campos válidos para actualizar');
-      }
-
-      valores.push(id);
-      const sql = `UPDATE usuarios SET ${camposActualizar.join(', ')} WHERE id = ?`;
-      
       const result = await query(sql, valores);
+      
+      if (result.affectedRows === 0) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      return this.obtenerPorId(id);
+    } catch (error) {
+      throw new Error(`Error al actualizar usuario: ${error.message}`);
+    }
+  }
+
+  /**
+   * Eliminar usuario
+   * @param {number} id - ID del usuario
+   * @returns {Promise<boolean>} Resultado de la operación
+   */
+  static async eliminar(id) {
+    const sql = 'DELETE FROM usuarios WHERE id = ?';
+
+    try {
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
-      console.error('Error actualizando usuario:', error);
-      throw error;
+      throw new Error(`Error al eliminar usuario: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verificar credenciales de usuario
+   * @param {string} email - Email del usuario
+   * @param {string} password - Contraseña del usuario
+   * @returns {Promise<Object|null>} Usuario autenticado o null
+   */
+  static async verificarCredenciales(email, password) {
+    try {
+      const usuario = await this.obtenerPorEmail(email);
+      
+      if (!usuario || !usuario.activo) {
+        return null;
+      }
+
+      const passwordValido = await bcrypt.compare(password, usuario.password);
+      
+      if (!passwordValido) {
+        return null;
+      }
+
+      // Actualizar último acceso
+      await this.actualizarUltimoAcceso(usuario.id);
+
+      return usuario;
+    } catch (error) {
+      throw new Error(`Error al verificar credenciales: ${error.message}`);
     }
   }
 
   /**
    * Actualizar último acceso
    * @param {number} id - ID del usuario
-   * @returns {boolean} - True si se actualizó correctamente
+   * @returns {Promise<boolean>} Resultado de la operación
    */
   static async actualizarUltimoAcceso(id) {
+    const sql = 'UPDATE usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = ?';
+
     try {
-      const sql = 'UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = ?';
       const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
-      console.error('Error actualizando último acceso:', error);
-      throw error;
+      throw new Error(`Error al actualizar último acceso: ${error.message}`);
     }
   }
 
   /**
-   * Eliminar usuario (marcar como inactivo)
+   * Cambiar contraseña
    * @param {number} id - ID del usuario
-   * @returns {boolean} - True si se eliminó correctamente
+   * @param {string} passwordActual - Contraseña actual
+   * @param {string} passwordNuevo - Nueva contraseña
+   * @returns {Promise<boolean>} Resultado de la operación
    */
-  static async eliminar(id) {
+  static async cambiarPassword(id, passwordActual, passwordNuevo) {
     try {
-      const sql = 'UPDATE usuarios SET activo = 0 WHERE id = ?';
-      const result = await query(sql, [id]);
+      const usuario = await this.obtenerPorId(id);
+      
+      if (!usuario) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const passwordValido = await bcrypt.compare(passwordActual, usuario.password);
+      
+      if (!passwordValido) {
+        throw new Error('Contraseña actual incorrecta');
+      }
+
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(passwordNuevo, saltRounds);
+
+      const sql = 'UPDATE usuarios SET password = ? WHERE id = ?';
+      const result = await query(sql, [hashedPassword, id]);
+
       return result.affectedRows > 0;
     } catch (error) {
-      console.error('Error eliminando usuario:', error);
-      throw error;
+      throw new Error(`Error al cambiar contraseña: ${error.message}`);
     }
   }
 
   /**
-   * Eliminar usuario permanentemente
-   * @param {number} id - ID del usuario
-   * @returns {boolean} - True si se eliminó correctamente
-   */
-  static async eliminarPermanentemente(id) {
-    try {
-      const sql = 'DELETE FROM usuarios WHERE id = ?';
-      const result = await query(sql, [id]);
-      return result.affectedRows > 0;
-    } catch (error) {
-      console.error('Error eliminando usuario permanentemente:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Verificar si existe un usuario por email
+   * Verificar si existe un email
    * @param {string} email - Email a verificar
    * @param {number} excludeId - ID a excluir (para actualizaciones)
-   * @returns {boolean} - True si existe
+   * @returns {Promise<boolean>} Existe el email
    */
-  static async existePorEmail(email, excludeId = null) {
-    try {
-      let sql = 'SELECT COUNT(*) as count FROM usuarios WHERE email = ?';
-      const params = [email];
+  static async existeEmail(email, excludeId = null) {
+    let sql = 'SELECT COUNT(*) as total FROM usuarios WHERE email = ?';
+    let params = [email];
 
-      if (excludeId) {
-        sql += ' AND id != ?';
-        params.push(excludeId);
-      }
-
-      const result = await query(sql, params);
-      return result[0].count > 0;
-    } catch (error) {
-      console.error('Error verificando existencia por email:', error);
-      throw error;
+    if (excludeId) {
+      sql += ' AND id != ?';
+      params.push(excludeId);
     }
-  }
 
-  /**
-   * Verificar si existe un usuario por Firebase UID
-   * @param {string} firebase_uid - Firebase UID a verificar
-   * @param {number} excludeId - ID a excluir (para actualizaciones)
-   * @returns {boolean} - True si existe
-   */
-  static async existePorFirebaseUid(firebase_uid, excludeId = null) {
     try {
-      let sql = 'SELECT COUNT(*) as count FROM usuarios WHERE firebase_uid = ?';
-      const params = [firebase_uid];
-
-      if (excludeId) {
-        sql += ' AND id != ?';
-        params.push(excludeId);
-      }
-
-      const result = await query(sql, params);
-      return result[0].count > 0;
+      const rows = await query(sql, params);
+      return rows[0].total > 0;
     } catch (error) {
-      console.error('Error verificando existencia por Firebase UID:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener estadísticas de usuarios
-   * @returns {Object} - Estadísticas
-   */
-  static async obtenerEstadisticas() {
-    try {
-      const sql = `
-        SELECT 
-          COUNT(*) as total_usuarios,
-          SUM(CASE WHEN activo = 1 THEN 1 ELSE 0 END) as usuarios_activos,
-          SUM(CASE WHEN activo = 0 THEN 1 ELSE 0 END) as usuarios_inactivos,
-          COUNT(DISTINCT rol_id) as roles_diferentes,
-          DATE(ultimo_acceso) as ultimo_acceso_fecha
-        FROM usuarios
-        ORDER BY ultimo_acceso DESC
-        LIMIT 1
-      `;
-
-      const result = await query(sql);
-      return result[0];
-    } catch (error) {
-      console.error('Error obteniendo estadísticas de usuarios:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener usuarios por rol
-   * @param {number} rol_id - ID del rol
-   * @returns {Array} - Lista de usuarios del rol
-   */
-  static async obtenerPorRol(rol_id) {
-    try {
-      const sql = `
-        SELECT u.*, r.nombre as rol_nombre
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-        WHERE u.rol_id = ? AND u.activo = 1
-        ORDER BY u.nombre, u.apellido
-      `;
-
-      const usuarios = await query(sql, [rol_id]);
-      return usuarios;
-    } catch (error) {
-      console.error('Error obteniendo usuarios por rol:', error);
-      throw error;
+      throw new Error(`Error al verificar email: ${error.message}`);
     }
   }
 
   /**
    * Buscar usuarios
    * @param {string} termino - Término de búsqueda
-   * @returns {Array} - Lista de usuarios que coinciden
+   * @returns {Promise<Array>} Usuarios encontrados
    */
   static async buscar(termino) {
-    try {
-      const sql = `
-        SELECT u.*, r.nombre as rol_nombre
-        FROM usuarios u
-        INNER JOIN roles r ON u.rol_id = r.id
-        WHERE u.activo = 1 AND (
-          u.nombre LIKE ? OR 
-          u.apellido LIKE ? OR 
-          u.email LIKE ? OR
-          CONCAT(u.nombre, ' ', u.apellido) LIKE ?
-        )
-        ORDER BY u.nombre, u.apellido
-        LIMIT 20
-      `;
+    const sql = `
+      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      FROM usuarios u
+      INNER JOIN roles r ON u.rol_id = r.id
+      WHERE u.nombre LIKE ? OR u.apellido LIKE ? OR u.email LIKE ?
+      ORDER BY u.nombre, u.apellido
+    `;
 
-      const busqueda = `%${termino}%`;
-      const usuarios = await query(sql, [busqueda, busqueda, busqueda, busqueda]);
-      return usuarios;
+    const busqueda = `%${termino}%`;
+
+    try {
+      const rows = await query(sql, [busqueda, busqueda, busqueda]);
+      
+      // Parsear permisos para cada usuario
+      rows.forEach(usuario => {
+        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
+      });
+
+      return rows;
     } catch (error) {
-      console.error('Error buscando usuarios:', error);
-      throw error;
+      throw new Error(`Error al buscar usuarios: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener usuarios por rol
+   * @param {number} rol_id - ID del rol
+   * @returns {Promise<Array>} Usuarios del rol
+   */
+  static async obtenerPorRol(rol_id) {
+    const sql = `
+      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      FROM usuarios u
+      INNER JOIN roles r ON u.rol_id = r.id
+      WHERE u.rol_id = ?
+      ORDER BY u.nombre, u.apellido
+    `;
+
+    try {
+      const rows = await query(sql, [rol_id]);
+      
+      // Parsear permisos para cada usuario
+      rows.forEach(usuario => {
+        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
+      });
+
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener usuarios por rol: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener estadísticas de usuarios
+   * @returns {Promise<Object>} Estadísticas de usuarios
+   */
+  static async obtenerEstadisticas() {
+    const sql = `
+      SELECT 
+        COUNT(*) as total_usuarios,
+        COUNT(CASE WHEN activo = true THEN 1 END) as usuarios_activos,
+        COUNT(CASE WHEN activo = false THEN 1 END) as usuarios_inactivos,
+        COUNT(CASE WHEN ultimo_acceso >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 END) as usuarios_activos_semana,
+        COUNT(CASE WHEN ultimo_acceso >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 END) as usuarios_activos_mes
+      FROM usuarios
+    `;
+
+    try {
+      const rows = await query(sql);
+      return rows[0];
+    } catch (error) {
+      throw new Error(`Error al obtener estadísticas: ${error.message}`);
     }
   }
 }
