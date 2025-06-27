@@ -1021,7 +1021,7 @@ CREATE TABLE `servicios` (
   `duracion` int NOT NULL COMMENT 'Duración en minutos',
   `precio` decimal(10,2) NOT NULL,
   `imagen` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `activo` tinyint(1) DEFAULT '1',
+  `activo` tinyint(1UL) DEFAULT '1',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

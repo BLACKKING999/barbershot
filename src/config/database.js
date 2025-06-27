@@ -7,11 +7,11 @@ require('dotenv').config();
 
 // Configuración de la base de datos
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'peluqueria_db',
-  port: process.env.DB_PORT || 3306,
+  host: process.env.DB_HOST ,
+  user: process.env.DB_USER ,
+  password: process.env.DB_PASSWORD ,
+  database: process.env.DB_NAME ,
+  port: process.env.DB_PORT ,
   charset: 'utf8mb4',
   timezone: '+00:00',
   connectionLimit: 10,
@@ -114,10 +114,11 @@ pool.on('error', manejarErrorConexion);
 // Función utilitaria para ejecutar queries
 async function query(sql, params) {
   console.log('SQL:', sql);
-  console.log('Parámetros:', [...params, limitNum, offset]);
+  console.log('Parámetros:', params);
   const [rows] = await pool.execute(sql, params);
   return rows;
 }
+
 
 module.exports = {
   pool,

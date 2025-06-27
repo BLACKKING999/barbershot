@@ -61,6 +61,33 @@ exports.getVentaById = asyncHandler(async (req, res, next) => {
     }
 });
 
+// @desc    Actualizar estado de pago de una venta
+// @route   PATCH /api/ventas/:id/estado-pago
+// @access  Private (Admin, Dueño, Empleado)
+exports.updateEstadoPago = asyncHandler(async (req, res, next) => {
+    try {
+      const ventaId = req.params.id;
+      const { estado_pago_id, notas } = req.body;
+  
+      // Aquí deberías llamar a la función de tu modelo que actualice el estado de pago.
+      // Por ejemplo:
+      const ventaActualizada = await VentaProducto.actualizarEstadoPago(ventaId, estado_pago_id, notas);
+  
+      if (!ventaActualizada) {
+        return next(new ErrorResponse(`Venta no encontrada con el id ${ventaId}`, 404));
+      }
+  
+      res.status(200).json({
+        success: true,
+        mensaje: 'Estado de pago actualizado exitosamente',
+        data: ventaActualizada,
+      });
+    } catch (error) {
+      next(new ErrorResponse(error.message, 500));
+    }
+  });
+  
+
 // @desc    Actualizar una venta
 // @route   PUT /api/ventas/:id
 // @access  Private (Admin, Dueño)

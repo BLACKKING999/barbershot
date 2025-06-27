@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, query } = require('express-validator');
+const { body, query, param } = require('express-validator'); // ✅ se añadió `param`
 const ventaController = require('../controllers/ventaController');
 const { protect, authorize } = require('../middleware/auth');
 const handleValidation = require('../middleware/handleValidation');
@@ -37,16 +37,17 @@ router.route('/')
 router.route('/:id')
     .get([
         authorize('administrador', 'dueño', 'empleado'),
-        body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
+        param('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo') // ✅ corregido
     ], handleValidation, ventaController.getVentaById)
     .delete([
         authorize('administrador', 'dueño'),
-        body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
-    ], handleValidation, ventaController.cancelarVenta);
+        param('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo') // ✅ corregido
+    ], handleValidation, ventaController.deleteVenta); // ✅ corregido el nombre
 
 // --- Ruta para cambiar estado de pago ---
 router.patch('/:id/estado-pago', [
     authorize('administrador', 'dueño', 'empleado'),
+    param('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo'), // ✅ agregado
     body('estado_pago_id').isInt({ min: 1 }).withMessage('Estado de pago requerido'),
     body('notas').optional().isString()
 ], handleValidation, ventaController.updateEstadoPago);
@@ -54,7 +55,7 @@ router.patch('/:id/estado-pago', [
 // --- Rutas específicas ---
 router.get('/cliente/:cliente_id', [
     authorize('administrador', 'dueño', 'empleado'),
-    body('cliente_id').isInt({ min: 1 }).withMessage('ID de cliente debe ser un número positivo'),
+    param('cliente_id').isInt({ min: 1 }).withMessage('ID de cliente debe ser un número positivo'), // ✅ corregido
     query('page').optional().isInt({ min: 1 }).withMessage('Página debe ser un número positivo'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Límite debe estar entre 1 y 100')
 ], handleValidation, ventaController.getVentasPorCliente);
@@ -64,6 +65,6 @@ router.get('/stats', [
     authorize('administrador', 'dueño'),
     query('fecha_inicio').optional().isISO8601().withMessage('Fecha de inicio debe ser válida'),
     query('fecha_fin').optional().isISO8601().withMessage('Fecha de fin debe ser válida')
-], handleValidation, ventaController.getStatsVentas);
+], handleValidation, ventaController.getEstadisticasVentas);
 
-module.exports = router; 
+module.exports = router;

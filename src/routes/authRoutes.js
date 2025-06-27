@@ -26,6 +26,14 @@ router.use(protect);
 router.post('/logout', authController.cerrarSesion);
 
 // Gestionar Perfil
+
+
+// Verificar Token
+router.get('/verify', authController.verificarAutenticacion);
+
+// --- Rutas de Administrador/Dueño ---
+router.get('/stats', authorize('administrador', 'dueño'), authController.obtenerEstadisticas);
+
 router.route('/profile')
     .get(authController.obtenerPerfil)
     .put([
@@ -38,12 +46,5 @@ router.route('/profile')
         body('notificacion_sms').optional().isBoolean(),
         body('recordatorio_horas_antes').optional().isInt({ min: 1, max: 168 })
     ], handleValidation, authController.actualizarPerfil);
-
-// Verificar Token
-router.get('/verify', authController.verificarAutenticacion);
-
-// --- Rutas de Administrador/Dueño ---
-router.get('/stats', authorize('administrador', 'dueño'), authController.obtenerEstadisticas);
-
 
 module.exports = router;
