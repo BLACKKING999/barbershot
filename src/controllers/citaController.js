@@ -49,11 +49,9 @@ exports.getAllCitas = asyncHandler(async (req, res, next) => {
 exports.getCitaById = asyncHandler(async (req, res, next) => {
     try {
         const cita = await Cita.obtenerPorId(req.params.id);
-
         if (!cita) {
             return next(new ErrorResponse(`Cita no encontrada con el id ${req.params.id}`, 404));
         }
-
         res.status(200).json({
             success: true,
             data: cita
@@ -69,7 +67,6 @@ exports.getCitaById = asyncHandler(async (req, res, next) => {
 exports.updateCita = asyncHandler(async (req, res, next) => {
     try {
         const cita = await Cita.actualizar(req.params.id, req.body);
-
         res.status(200).json({
             success: true,
             mensaje: 'Cita actualizada exitosamente',
@@ -84,40 +81,53 @@ exports.updateCita = asyncHandler(async (req, res, next) => {
     }
 });
 
-// @desc    Cambiar estado de una cita
-// @route   PATCH /api/citas/:id/estado
-// @access  Private (Admin, Dueño, Empleado)
-exports.cambiarEstadoCita = asyncHandler(async (req, res, next) => {
-    try {
-        const cita = await Cita.cambiarEstado(req.params.id, req.body);
-
-        res.status(200).json({
-            success: true,
-            mensaje: 'Estado de cita actualizado exitosamente',
-            data: cita
-        });
-    } catch (error) {
-        next(new ErrorResponse(error.message, 400));
-    }
-});
-
-// @desc    Eliminar (cancelar) una cita
+// @desc    Eliminar una cita
 // @route   DELETE /api/citas/:id
-// @access  Private (Admin, Dueño, Empleado)
+// @access  Private (Admin, Dueño)
 exports.deleteCita = asyncHandler(async (req, res, next) => {
     try {
-        const eliminado = await Cita.cancelar(req.params.id);
-
+        const eliminado = await Cita.eliminar(req.params.id);
         if (!eliminado) {
             return next(new ErrorResponse(`Cita no encontrada con el id ${req.params.id}`, 404));
         }
-
         res.status(200).json({
             success: true,
-            mensaje: 'Cita cancelada exitosamente'
+            mensaje: 'Cita eliminada exitosamente'
         });
     } catch (error) {
-        next(new ErrorResponse(error.message, 400));
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener citas por cliente
+// @route   GET /api/citas/cliente/:cliente_id
+// @access  Private (Admin, Dueño, Empleado)
+exports.getCitasPorCliente = asyncHandler(async (req, res, next) => {
+    try {
+        const citas = await Cita.obtenerPorCliente(req.params.cliente_id);
+        res.status(200).json({
+            success: true,
+            count: citas.length,
+            data: citas
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener citas por empleado
+// @route   GET /api/citas/empleado/:empleado_id
+// @access  Private (Admin, Dueño, Empleado)
+exports.getCitasPorEmpleado = asyncHandler(async (req, res, next) => {
+    try {
+        const citas = await Cita.obtenerPorEmpleado(req.params.empleado_id);
+        res.status(200).json({
+            success: true,
+            count: citas.length,
+            data: citas
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
     }
 });
 
@@ -126,13 +136,64 @@ exports.deleteCita = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin, Dueño, Empleado)
 exports.getCitasPorFecha = asyncHandler(async (req, res, next) => {
     try {
-        const { empleado_id } = req.query;
-        const citas = await Cita.obtenerPorFecha(req.params.fecha, empleado_id);
-
+        const citas = await Cita.obtenerPorFecha(req.params.fecha);
         res.status(200).json({
             success: true,
             count: citas.length,
             data: citas
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener citas por estado
+// @route   GET /api/citas/estado/:estado
+// @access  Private (Admin, Dueño, Empleado)
+exports.getCitasPorEstado = asyncHandler(async (req, res, next) => {
+    try {
+        const citas = await Cita.obtenerPorEstado(req.params.estado);
+        res.status(200).json({
+            success: true,
+            count: citas.length,
+            data: citas
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Cambiar estado de una cita
+// @route   PATCH /api/citas/:id/estado
+// @access  Private (Admin, Dueño, Empleado)
+exports.cambiarEstadoCita = asyncHandler(async (req, res, next) => {
+    try {
+        const { estado } = req.body;
+        const cita = await Cita.cambiarEstado(req.params.id, estado);
+        res.status(200).json({
+            success: true,
+            mensaje: 'Estado de cita actualizado exitosamente',
+            data: cita
+        });
+    } catch (error) {
+        if (error.message.includes('no encontrada')) {
+            next(new ErrorResponse(error.message, 404));
+        } else {
+            next(new ErrorResponse(error.message, 400));
+        }
+    }
+});
+
+// @desc    Obtener horarios disponibles
+// @route   GET /api/citas/horarios-disponibles
+// @access  Public
+exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
+    try {
+        const { fecha, empleado_id, servicio_id } = req.query;
+        const horarios = await Cita.obtenerHorariosDisponibles(fecha, empleado_id, servicio_id);
+        res.status(200).json({
+            success: true,
+            data: horarios
         });
     } catch (error) {
         next(new ErrorResponse(error.message, 500));

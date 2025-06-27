@@ -44,190 +44,189 @@ const getEmpleadoCompleto = async (empleadoId) => {
     });
 };
 
-// @desc    Crear un nuevo empleado a partir de un usuario existente
+// @desc    Crear un nuevo empleado
 // @route   POST /api/empleados
 // @access  Private (Admin, Dueño)
 exports.createEmpleado = asyncHandler(async (req, res, next) => {
-    const { 
-        usuario_id, // ID del usuario existente a promover
-        titulo, 
-        biografia, 
-        fecha_contratacion, 
-        especialidades, // array de IDs de especialidad
-        servicios,      // array de IDs de servicio
-        horarios        // array de objetos de horario { dia_semana, hora_inicio, hora_fin }
-    } = req.body;
-
-    const ROL_EMPLEADO_ID = 2; // Rol de Empleado
-
-    if (!usuario_id) {
-        return next(new ErrorResponse('Se requiere el ID del usuario a promover.', 400));
-    }
-
-    const t = await sequelize.transaction();
-
     try {
-        // 1. Validar que el usuario exista
-        const usuario = await Usuario.findByPk(usuario_id, { transaction: t });
-        if (!usuario) {
-            await t.rollback();
-            return next(new ErrorResponse(`Usuario no encontrado con el ID ${usuario_id}`, 404));
-        }
-
-        // 2. Verificar que no sea ya un empleado
-        if (usuario.rol_id === ROL_EMPLEADO_ID || await Empleado.findOne({ where: { usuario_id }, transaction: t })) {
-             await t.rollback();
-             return next(new ErrorResponse('Este usuario ya tiene un perfil de empleado.', 400));
-        }
-
-        // 3. Promover al usuario: Actualizar rol y eliminar perfil de cliente si existe
-        await usuario.update({ rol_id: ROL_EMPLEADO_ID }, { transaction: t });
-        await Cliente.destroy({ where: { usuario_id: usuario.id }, transaction: t });
-
-        // 4. Crear el perfil de Empleado
-        const empleado = await Empleado.create({
-            usuario_id: usuario.id,
-            titulo,
-            biografia,
-            fecha_contratacion: fecha_contratacion || new Date(),
-            activo: true
-        }, { transaction: t });
-
-        // 5. Asignar Especialidades
-        if (especialidades && especialidades.length > 0) {
-            const especialidadesData = especialidades.map(id => ({ empleado_id: empleado.id, especialidad_id: id }));
-            await EmpleadoEspecialidad.bulkCreate(especialidadesData, { transaction: t });
-        }
-
-        // 6. Asignar Servicios
-        if (servicios && servicios.length > 0) {
-            const serviciosData = servicios.map(id => ({ empleado_id: empleado.id, servicio_id: id }));
-            await EmpleadoServicio.bulkCreate(serviciosData, { transaction: t });
-        }
-
-        // 7. Asignar Horarios
-        if (horarios && horarios.length > 0) {
-            const horariosData = horarios.map(h => ({ ...h, empleado_id: empleado.id }));
-            await HorarioEmpleado.bulkCreate(horariosData, { transaction: t });
-        }
-
-        await t.commit();
-
-        const empleadoCompleto = await getEmpleadoCompleto(empleado.id);
-
+        const empleado = await Empleado.crear(req.body);
         res.status(201).json({
             success: true,
-            mensaje: 'Usuario promovido a empleado exitosamente.',
-            data: empleadoCompleto
+            mensaje: 'Empleado creado exitosamente.',
+            data: empleado
         });
-
     } catch (error) {
-        await t.rollback();
-        next(new ErrorResponse('No se pudo crear el perfil de empleado. Por favor, revise los datos.', 500, error.errors));
+        next(new ErrorResponse(error.message, 400));
     }
 });
 
 // @desc    Obtener todos los empleados
 // @route   GET /api/empleados
-// @access  Private (Admin, Dueño)
+// @access  Private (Admin, Dueño, Empleado)
 exports.getAllEmpleados = asyncHandler(async (req, res, next) => {
-    const empleados = await Empleado.findAll({
-        include: [{
-            model: Usuario,
-            as: 'usuario',
-            attributes: ['nombre', 'apellido', 'email', 'foto_perfil']
-        }],
-        where: { activo: true }
-    });
-
-    res.status(200).json({
-        success: true,
-        count: empleados.length,
-        data: empleados
-    });
+    try {
+        const empleados = await Empleado.obtenerTodos(req.query);
+        res.status(200).json({
+            success: true,
+            count: empleados.length,
+            data: empleados
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
 });
 
 // @desc    Obtener un empleado por ID
 // @route   GET /api/empleados/:id
-// @access  Private (Admin, Dueño)
+// @access  Private (Admin, Dueño, Empleado)
 exports.getEmpleadoById = asyncHandler(async (req, res, next) => {
-    const empleado = await getEmpleadoCompleto(req.params.id);
-
-    if (!empleado) {
-        return next(new ErrorResponse(`Empleado no encontrado con el id ${req.params.id}`, 404));
+    try {
+        const empleado = await Empleado.obtenerPorId(req.params.id);
+        if (!empleado) {
+            return next(new ErrorResponse(`Empleado no encontrado con el id ${req.params.id}`, 404));
+        }
+        res.status(200).json({
+            success: true,
+            data: empleado
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
     }
-
-    res.status(200).json({
-        success: true,
-        data: empleado
-    });
 });
 
 // @desc    Actualizar un empleado
 // @route   PUT /api/empleados/:id
 // @access  Private (Admin, Dueño)
 exports.updateEmpleado = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { email, nombre, apellido, telefono, foto_perfil, titulo, biografia, activo } = req.body;
-
-    const empleado = await Empleado.findByPk(id);
-    if (!empleado) {
-        return next(new ErrorResponse(`Empleado no encontrado con el id ${id}`, 404));
-    }
-
-    const t = await sequelize.transaction();
-
     try {
-        // Actualizar datos del empleado
-        await empleado.update({ titulo, biografia, activo }, { transaction: t });
-
-        // Actualizar datos del usuario asociado
-        const usuario = await Usuario.findByPk(empleado.usuario_id);
-        if (usuario) {
-            await usuario.update({ email, nombre, apellido, telefono, foto_perfil }, { transaction: t });
-        }
-        
-        await t.commit();
-        
-        const empleadoActualizado = await getEmpleadoCompleto(id);
-
+        const empleado = await Empleado.actualizar(req.params.id, req.body);
         res.status(200).json({
             success: true,
-            data: empleadoActualizado
+            mensaje: 'Empleado actualizado exitosamente',
+            data: empleado
         });
     } catch (error) {
-        await t.rollback();
-        next(new ErrorResponse('No se pudo actualizar el empleado.', 500, error.errors));
+        if (error.message.includes('no encontrado')) {
+            next(new ErrorResponse(error.message, 404));
+        } else {
+            next(new ErrorResponse(error.message, 400));
+        }
     }
 });
 
-// @desc    Eliminar un empleado (desactivar)
+// @desc    Eliminar un empleado
 // @route   DELETE /api/empleados/:id
 // @access  Private (Admin, Dueño)
 exports.deleteEmpleado = asyncHandler(async (req, res, next) => {
-    const empleado = await Empleado.findByPk(req.params.id);
-
-    if (!empleado) {
-        return next(new ErrorResponse(`Empleado no encontrado con el id ${req.params.id}`, 404));
-    }
-    
-    // Soft delete: solo se desactiva el empleado y el usuario
-    const t = await sequelize.transaction();
     try {
-        await empleado.update({ activo: false }, { transaction: t });
-        const usuario = await Usuario.findByPk(empleado.usuario_id);
-        if (usuario) {
-            await usuario.update({ activo: false }, { transaction: t });
+        const eliminado = await Empleado.eliminar(req.params.id);
+        if (!eliminado) {
+            return next(new ErrorResponse(`Empleado no encontrado con el id ${req.params.id}`, 404));
         }
-        await t.commit();
-
-        res.status(200).json({ success: true, data: {} });
+        res.status(200).json({
+            success: true,
+            mensaje: 'Empleado eliminado exitosamente'
+        });
     } catch (error) {
-        await t.rollback();
-        next(new ErrorResponse('No se pudo eliminar el empleado.', 500));
+        next(new ErrorResponse(error.message, 500));
     }
 });
 
+// @desc    Obtener empleados por especialidad
+// @route   GET /api/empleados/especialidad/:especialidad_id
+// @access  Public
+exports.getEmpleadosPorEspecialidad = asyncHandler(async (req, res, next) => {
+    try {
+        const empleados = await Empleado.obtenerPorEspecialidad(req.params.especialidad_id);
+        res.status(200).json({
+            success: true,
+            count: empleados.length,
+            data: empleados
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener empleados por servicio
+// @route   GET /api/empleados/servicio/:servicio_id
+// @access  Public
+exports.getEmpleadosPorServicio = asyncHandler(async (req, res, next) => {
+    try {
+        const empleados = await Empleado.obtenerPorServicio(req.params.servicio_id);
+        res.status(200).json({
+            success: true,
+            count: empleados.length,
+            data: empleados
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener horarios de un empleado
+// @route   GET /api/empleados/:id/horarios
+// @access  Private (Admin, Dueño, Empleado)
+exports.getHorariosEmpleado = asyncHandler(async (req, res, next) => {
+    try {
+        const horarios = await HorarioEmpleado.obtenerPorEmpleado(req.params.id);
+        res.status(200).json({
+            success: true,
+            count: horarios.length,
+            data: horarios
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener ausencias de un empleado
+// @route   GET /api/empleados/:id/ausencias
+// @access  Private (Admin, Dueño, Empleado)
+exports.getAusenciasEmpleado = asyncHandler(async (req, res, next) => {
+    try {
+        const ausencias = await AusenciaEmpleado.obtenerPorEmpleado(req.params.id);
+        res.status(200).json({
+            success: true,
+            count: ausencias.length,
+            data: ausencias
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener especialidades de un empleado
+// @route   GET /api/empleados/:id/especialidades
+// @access  Public
+exports.getEspecialidadesEmpleado = asyncHandler(async (req, res, next) => {
+    try {
+        const especialidades = await EmpleadoEspecialidad.obtenerPorEmpleado(req.params.id);
+        res.status(200).json({
+            success: true,
+            count: especialidades.length,
+            data: especialidades
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
+
+// @desc    Obtener servicios de un empleado
+// @route   GET /api/empleados/:id/servicios
+// @access  Public
+exports.getServiciosEmpleado = asyncHandler(async (req, res, next) => {
+    try {
+        const servicios = await EmpleadoServicio.obtenerPorEmpleado(req.params.id);
+        res.status(200).json({
+            success: true,
+            count: servicios.length,
+            data: servicios
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 500));
+    }
+});
 
 // --- Especialidades ---
 // @desc    Asignar/Actualizar especialidades a un empleado
@@ -353,25 +352,6 @@ exports.addAusenciaEmpleado = asyncHandler(async (req, res, next) => {
     res.status(201).json({
         success: true,
         data: ausencia
-    });
-});
-
-// @desc    Obtener todas las ausencias de un empleado
-// @route   GET /api/empleados/:id/ausencias
-// @access  Private (Admin, Dueño)
-exports.getAusenciasEmpleado = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
-    
-    if (!await Empleado.findByPk(id)) {
-        return next(new ErrorResponse(`Empleado no encontrado con id ${id}`, 404));
-    }
-
-    const ausencias = await AusenciaEmpleado.findAll({ where: { empleado_id: id } });
-    
-    res.status(200).json({
-        success: true,
-        count: ausencias.length,
-        data: ausencias
     });
 });
 

@@ -82,4 +82,4 @@ router.get('/:id/servicios', [
     authorize('administrador', 'dueño', 'empleado')
 ], empleadoController.getServiciosEmpleado);
 
-module.exports = router;
+module.exports = router; 

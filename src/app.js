@@ -20,6 +20,18 @@ const productoRoutes = require('./routes/productoRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const ventaRoutes = require('./routes/ventaRoutes');
 const especialidadRoutes = require('./routes/especialidadRoutes');
+const ausenciaEmpleadoRoutes = require('./routes/ausenciaEmpleadoRoutes');
+const carruselRoutes = require('./routes/carruselRoutes');
+const categoriaGaleriaRoutes = require('./routes/categoriaGaleriaRoutes');
+const galeriaRoutes = require('./routes/galeriaRoutes');
+const promocionRoutes = require('./routes/promocionRoutes');
+const resenaRoutes = require('./routes/resenaRoutes');
+const configuracionRoutes = require('./routes/configuracionRoutes');
+const pagoRoutes = require('./routes/pagoRoutes');
+const notificacionRoutes = require('./routes/notificacionRoutes');
+const horarioEmpleadoRoutes = require('./routes/horarioEmpleadoRoutes');
+const fichaClienteRoutes = require('./routes/fichaClienteRoutes');
+const multimediaRoutes = require('./routes/multimediaRoutes');
 
 // Importar middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -115,6 +127,18 @@ app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/especialidades', especialidadRoutes);
+app.use('/api/ausencias-empleado', ausenciaEmpleadoRoutes);
+app.use('/api/carruseles', carruselRoutes);
+app.use('/api/categorias-galeria', categoriaGaleriaRoutes);
+app.use('/api/galeria', galeriaRoutes);
+app.use('/api/promociones', promocionRoutes);
+app.use('/api/resenas', resenaRoutes);
+app.use('/api/configuraciones', configuracionRoutes);
+app.use('/api/pagos', pagoRoutes);
+app.use('/api/notificaciones', notificacionRoutes);
+app.use('/api/horarios-empleado', horarioEmpleadoRoutes);
+app.use('/api/fichas-cliente', fichaClienteRoutes);
+app.use('/api/multimedia', multimediaRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {
@@ -133,7 +157,19 @@ app.get('/api/health', (req, res) => {
       productos: '/api/productos',
       categorias: '/api/categorias',
       ventas: '/api/ventas',
-      especialidades: '/api/especialidades'
+      especialidades: '/api/especialidades',
+      ausenciasEmpleado: '/api/ausencias-empleado',
+      carruseles: '/api/carruseles',
+      categoriasGaleria: '/api/categorias-galeria',
+      galeria: '/api/galeria',
+      promociones: '/api/promociones',
+      resenas: '/api/resenas',
+      configuraciones: '/api/configuraciones',
+      pagos: '/api/pagos',
+      notificaciones: '/api/notificaciones',
+      horariosEmpleado: '/api/horarios-empleado',
+      fichasCliente: '/api/fichas-cliente',
+      multimedia: '/api/multimedia'
     }
   });
 });
@@ -153,6 +189,18 @@ app.get('/', (req, res) => {
       categorias: '/api/categorias',
       ventas: '/api/ventas',
       especialidades: '/api/especialidades',
+      ausenciasEmpleado: '/api/ausencias-empleado',
+      carruseles: '/api/carruseles',
+      categoriasGaleria: '/api/categorias-galeria',
+      galeria: '/api/galeria',
+      promociones: '/api/promociones',
+      resenas: '/api/resenas',
+      configuraciones: '/api/configuraciones',
+      pagos: '/api/pagos',
+      notificaciones: '/api/notificaciones',
+      horariosEmpleado: '/api/horarios-empleado',
+      fichasCliente: '/api/fichas-cliente',
+      multimedia: '/api/multimedia',
       health: '/api/health'
     },
     documentation: 'Documentación disponible en /api/docs'
@@ -202,17 +250,27 @@ const iniciarServidor = async () => {
       console.log(`📂 Gestión de categorías en http://localhost:${PORT}/api/categorias`);
       console.log(`💰 Gestión de ventas en http://localhost:${PORT}/api/ventas`);
       console.log(`🎯 Gestión de especialidades en http://localhost:${PORT}/api/especialidades`);
+      console.log(`📋 Gestión de ausencias en http://localhost:${PORT}/api/ausencias-empleado`);
+      console.log(`🖼️ Gestión de carruseles en http://localhost:${PORT}/api/carruseles`);
+      console.log(`📁 Gestión de categorías de galería en http://localhost:${PORT}/api/categorias-galeria`);
+      console.log(`🖼️ Gestión de galería en http://localhost:${PORT}/api/galeria`);
+      console.log(`🎉 Gestión de promociones en http://localhost:${PORT}/api/promociones`);
+      console.log(`⭐ Gestión de reseñas en http://localhost:${PORT}/api/resenas`);
+      console.log(`⚙️ Gestión de configuraciones en http://localhost:${PORT}/api/configuraciones`);
+      console.log(`💳 Gestión de pagos en http://localhost:${PORT}/api/pagos`);
+      console.log(`🔔 Gestión de notificaciones en http://localhost:${PORT}/api/notificaciones`);
+      console.log(`⏰ Gestión de horarios en http://localhost:${PORT}/api/horarios-empleado`);
+      console.log(`📋 Gestión de fichas de clientes en http://localhost:${PORT}/api/fichas-cliente`);
+      console.log(`📁 Gestión de multimedia en http://localhost:${PORT}/api/multimedia`);
       console.log(`💚 Health check en http://localhost:${PORT}/api/health`);
     });
   } catch (error) {
-    console.error('❌ Error iniciando el servidor:', error);
+    console.error('❌ Error iniciando servidor:', error);
     process.exit(1);
   }
 };
 
-// Iniciar servidor si este archivo se ejecuta directamente
-if (require.main === module) {
-  iniciarServidor();
-}
+// Iniciar servidor
+iniciarServidor();
 
 module.exports = app;
