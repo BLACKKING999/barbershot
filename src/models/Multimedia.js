@@ -39,7 +39,7 @@ class Multimedia {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         tipo_id, titulo, descripcion, archivo, tipo_archivo, tamaño_archivo,
         formato, ancho, alto, duracion, palabras_clave, destacado,
         fecha_creacion, autor, derechos, activo
@@ -65,7 +65,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener multimedia: ${error.message}`);
@@ -144,8 +144,8 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         multimedia: rows,
@@ -196,7 +196,7 @@ class Multimedia {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Archivo multimedia no encontrado');
@@ -217,7 +217,7 @@ class Multimedia {
     const query = 'UPDATE multimedia SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar multimedia: ${error.message}`);
@@ -244,7 +244,7 @@ class Multimedia {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await query(query, [busquedaParam, busquedaParam, busquedaParam, busquedaParam, limite]);
+      const rows = await query(query, [busquedaParam, busquedaParam, busquedaParam, busquedaParam, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar multimedia: ${error.message}`);
@@ -278,7 +278,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite]);
+      const rows = await query(query, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia por tipo: ${error.message}`);
@@ -301,7 +301,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia destacado: ${error.message}`);
@@ -327,7 +327,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [formato, activo, limite]);
+      const rows = await query(query, [formato, activo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia por formato: ${error.message}`);
@@ -353,7 +353,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -382,7 +382,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por tipo: ${error.message}`);
@@ -408,7 +408,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia reciente: ${error.message}`);
@@ -434,7 +434,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [autor, activo, limite]);
+      const rows = await query(query, [autor, activo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia por autor: ${error.message}`);
@@ -462,7 +462,7 @@ class Multimedia {
     const palabraClaveParam = `%${palabraClave}%`;
 
     try {
-      const [rows] = await query(query, [activo, palabraClaveParam, limite]);
+      const rows = await query(query, [activo, palabraClaveParam, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia por palabra clave: ${error.message}`);
@@ -483,7 +483,7 @@ class Multimedia {
     `;
 
     try {
-      const [result] = await query(query, [destacado ? 1 : 0, id]);
+      const result = await query(query, [destacado ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Archivo multimedia no encontrado');
@@ -510,7 +510,7 @@ class Multimedia {
     `;
 
     try {
-      const [rows] = await query(query, [fecha]);
+      const rows = await query(query, [fecha]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener multimedia por fecha: ${error.message}`);
@@ -533,7 +533,7 @@ class Multimedia {
     }
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);

@@ -1,6 +1,8 @@
 // src/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const pool = require('../config/database');
+const { query } = require('../config/database');
+const { admin } = require('../config/firebaseAdmin');
+const authService = require('../services/authService');
 
 /**
  * Middleware para verificar token JWT
@@ -22,8 +24,8 @@ const verificarToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Verificar si el usuario existe y está activo
-    const [rows] = await pool.execute(
-      'SELECT id, email, rol_id, activo FROM usuarios WHERE id = ? AND activo = 1',
+    const rows = await query(
+      'SELECT u.id, u.email, u.rol_id, u.activo, c.id as cliente_id, e.id as empleado_id FROM usuarios u LEFT JOIN clientes c ON u.id = c.usuario_id LEFT JOIN empleados e ON u.id = e.usuario_id WHERE u.id = ? AND u.activo = 1',
       [decoded.id]
     );
     
@@ -38,7 +40,9 @@ const verificarToken = async (req, res, next) => {
     req.usuario = {
       id: rows[0].id,
       email: rows[0].email,
-      rol_id: rows[0].rol_id
+      rol_id: rows[0].rol_id,
+      cliente_id: rows[0].cliente_id,
+      empleado_id: rows[0].empleado_id
     };
     
     next();
@@ -96,21 +100,21 @@ const verificarRol = (rolesPermitidos) => {
  * Middleware para verificar si es admin
  */
 const esAdmin = (req, res, next) => {
-  return verificarRol(3)(req, res, next);
+  return verificarRol(1)(req, res, next);
 };
 
 /**
  * Middleware para verificar si es empleado o admin
  */
 const esEmpleadoOAdmin = (req, res, next) => {
-  return verificarRol([2, 3])(req, res, next);
+  return verificarRol([1, 2])(req, res, next);
 };
 
 /**
  * Middleware para verificar si es cliente
  */
 const esCliente = (req, res, next) => {
-  return verificarRol(1)(req, res, next);
+  return verificarRol(3)(req, res, next);
 };
 
 /**
@@ -129,7 +133,7 @@ const verificarPropiedad = (tabla, campoId = 'usuario_id') => {
         });
       }
       
-      const [rows] = await pool.execute(
+      const [rows] = await query(
         `SELECT ${campoId} FROM ${tabla} WHERE id = ?`,
         [recursoId]
       );
@@ -142,7 +146,7 @@ const verificarPropiedad = (tabla, campoId = 'usuario_id') => {
       }
       
       // Si es admin, puede acceder a cualquier recurso
-      if (req.usuario.rol_id === 3) {
+      if (req.usuario.rol_id === 1) {
         return next();
       }
       
@@ -180,7 +184,7 @@ const verificarAccesoCliente = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier cliente
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       return next();
     }
     
@@ -190,7 +194,7 @@ const verificarAccesoCliente = async (req, res, next) => {
     }
     
     // Si es cliente, solo puede acceder a sus propios datos
-    const [rows] = await pool.execute(
+    const [rows] = await query(
       'SELECT usuario_id FROM clientes WHERE id = ?',
       [clienteId]
     );
@@ -234,13 +238,13 @@ const verificarAccesoEmpleado = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier empleado
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       return next();
     }
     
     // Si es empleado, solo puede acceder a sus propios datos
     if (req.usuario.rol_id === 2) {
-      const [rows] = await pool.execute(
+      const [rows] = await query(
         'SELECT usuario_id FROM empleados WHERE id = ?',
         [empleadoId]
       );
@@ -261,7 +265,7 @@ const verificarAccesoEmpleado = async (req, res, next) => {
     }
     
     // Los clientes no pueden acceder a datos de empleados
-    if (req.usuario.rol_id === 1) {
+    if (req.usuario.rol_id === 3) {
       return res.status(403).json({
         success: false,
         mensaje: 'Acceso denegado. No tienes permisos para acceder a datos de empleados.'
@@ -293,11 +297,11 @@ const verificarPermisosCita = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier cita
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       return next();
     }
     
-    const [rows] = await pool.execute(
+    const [rows] = await query(
       'SELECT cliente_id, empleado_id FROM citas WHERE id = ?',
       [citaId]
     );
@@ -311,7 +315,7 @@ const verificarPermisosCita = async (req, res, next) => {
     
     // Si es empleado, verificar si es el empleado asignado
     if (req.usuario.rol_id === 2) {
-      const [empleadoRows] = await pool.execute(
+      const [empleadoRows] = await query(
         'SELECT id FROM empleados WHERE usuario_id = ?',
         [req.usuario.id]
       );
@@ -322,8 +326,8 @@ const verificarPermisosCita = async (req, res, next) => {
     }
     
     // Si es cliente, verificar si es el cliente de la cita
-    if (req.usuario.rol_id === 1) {
-      const [clienteRows] = await pool.execute(
+    if (req.usuario.rol_id === 3) {
+      const [clienteRows] = await query(
         'SELECT id FROM clientes WHERE usuario_id = ?',
         [req.usuario.id]
       );
@@ -362,11 +366,11 @@ const verificarPermisosPago = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier pago
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       return next();
     }
     
-    const [rows] = await pool.execute(
+    const [rows] = await query(
       `SELECT c.cliente_id, c.empleado_id 
        FROM pagos p 
        JOIN citas c ON p.cita_id = c.id 
@@ -383,7 +387,7 @@ const verificarPermisosPago = async (req, res, next) => {
     
     // Si es empleado, verificar si es el empleado de la cita
     if (req.usuario.rol_id === 2) {
-      const [empleadoRows] = await pool.execute(
+      const [empleadoRows] = await query(
         'SELECT id FROM empleados WHERE usuario_id = ?',
         [req.usuario.id]
       );
@@ -394,8 +398,8 @@ const verificarPermisosPago = async (req, res, next) => {
     }
     
     // Si es cliente, verificar si es el cliente de la cita
-    if (req.usuario.rol_id === 1) {
-      const [clienteRows] = await pool.execute(
+    if (req.usuario.rol_id === 3) {
+      const [clienteRows] = await query(
         'SELECT id FROM clientes WHERE usuario_id = ?',
         [req.usuario.id]
       );
@@ -419,31 +423,74 @@ const verificarPermisosPago = async (req, res, next) => {
   }
 };
 
-// Función principal de protección
+/**
+ * Middleware para verificar autenticación con Google/Firebase
+ */
 const protect = async (req, res, next) => {
   try {
-    await verificarToken(req, res, next);
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        mensaje: 'Token de acceso de Google requerido'
+      });
+    }
+    const idToken = authHeader.substring(7);
+    // Verificar el token con Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // Buscar usuario en la base de datos por firebase_uid
+    const usuario = await authService.buscarUsuarioPorFirebaseUid(decodedToken.uid);
+    if (!usuario) {
+      return res.status(401).json({
+        success: false,
+        mensaje: 'Usuario no registrado en la base de datos'
+      });
+    }
+    req.usuario = {
+      id: usuario.id,
+      firebase_uid: usuario.firebase_uid,
+      email: usuario.email,
+      nombre: usuario.nombre || '',
+      apellido: usuario.apellido || '',
+      rol_id: usuario.rol_id,
+      picture: usuario.foto_perfil || ''
+    };
     next();
   } catch (error) {
+    console.error('Error autenticando con Google:', error);
     res.status(401).json({
       success: false,
-      mensaje: 'Token inválido o expirado'
+      mensaje: 'Token de Google inválido o expirado'
     });
   }
 };
 
 // Función para autorizar roles específicos
 const authorize = (...roles) => {
-  return async (req, res, next) => {
-    try {
-      await verificarRol(roles)(req, res, next);
-      next();
-    } catch (error) {
-      res.status(403).json({
+  return (req, res, next) => {
+    if (!req.usuario) {
+      console.log('[authorize] Usuario no autenticado');
+      return res.status(401).json({
+        success: false,
+        mensaje: 'Usuario no autenticado'
+      });
+    }
+    // Convertir nombres de roles a IDs
+    const roleMap = {
+      'administrador': 1,
+      'empleado': 2,
+      'cliente': 3
+    };
+    const roleIds = roles.map(role => roleMap[role] || role);
+    console.log('[authorize] Usuario:', req.usuario, 'Roles permitidos:', roleIds);
+    if (!roleIds.includes(req.usuario.rol_id)) {
+      console.log('[authorize] Acceso denegado. Rol del usuario:', req.usuario.rol_id);
+      return res.status(403).json({
         success: false,
         mensaje: 'No tienes permisos para realizar esta acción'
       });
     }
+    next();
   };
 };
 

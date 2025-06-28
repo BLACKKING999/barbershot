@@ -29,7 +29,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         plantilla_id, destinatario, asunto, variables_datos, fecha_programada, 
         cita_id, usuario_id, maximo_intentos
       ]);
@@ -71,7 +71,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener correo programado: ${error.message}`);
@@ -166,8 +166,8 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         correosProgramados: rows,
@@ -216,7 +216,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Correo programado no encontrado');
@@ -237,7 +237,7 @@ class CorreoProgramado {
     const query = 'DELETE FROM correos_programados WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar correo programado: ${error.message}`);
@@ -286,7 +286,7 @@ class CorreoProgramado {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await query(query, [
+      const rows = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -329,7 +329,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos pendientes: ${error.message}`);
@@ -371,7 +371,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [plantilla_id]);
+      const rows = await query(query, [plantilla_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por plantilla: ${error.message}`);
@@ -413,7 +413,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [cita_id]);
+      const rows = await query(query, [cita_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener correos por cita: ${error.message}`);
@@ -513,7 +513,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -540,7 +540,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por plantilla: ${error.message}`);
@@ -567,7 +567,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, [dias]);
+      const rows = await query(query, [dias]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por día: ${error.message}`);
@@ -607,7 +607,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [result] = await query(query, [dias]);
+      const result = await query(query, [dias]);
       return result.affectedRows;
     } catch (error) {
       throw new Error(`Error al limpiar correos antiguos: ${error.message}`);
@@ -673,7 +673,7 @@ class CorreoProgramado {
     `;
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar correos programados: ${error.message}`);

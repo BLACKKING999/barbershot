@@ -113,10 +113,36 @@ pool.on('error', manejarErrorConexion);
 
 // Función utilitaria para ejecutar queries
 async function query(sql, params) {
-  console.log('SQL:', sql);
-  console.log('Parámetros:', [...params, limitNum, offset]);
-  const [rows] = await pool.execute(sql, params);
-  return rows;
+  console.log('🔍 [database.query] Iniciando ejecución de query');
+  console.log('🔍 [database.query] SQL:', sql);
+  console.log('🔍 [database.query] Parámetros:', params);
+  
+  try {
+    console.log('🔍 [database.query] Ejecutando pool.query...');
+    const [rows] = await pool.query(sql, params);
+    console.log('🔍 [database.query] Query ejecutada exitosamente');
+    console.log('🔍 [database.query] Filas retornadas:', rows.length);
+    
+    if (rows.length > 0) {
+      console.log('🔍 [database.query] Primera fila de ejemplo:', {
+        keys: Object.keys(rows[0]),
+        sampleData: Object.fromEntries(
+          Object.entries(rows[0]).slice(0, 5) // Solo mostrar los primeros 5 campos
+        )
+      });
+    }
+    
+    return rows;
+  } catch (error) {
+    console.error('❌ [database.query] Error ejecutando query:', error);
+    console.error('❌ [database.query] SQL que causó el error:', sql);
+    console.error('❌ [database.query] Parámetros que causaron el error:', params);
+    console.error('❌ [database.query] Código de error MySQL:', error.code);
+    console.error('❌ [database.query] Número de error MySQL:', error.errno);
+    console.error('❌ [database.query] SQL State:', error.sqlState);
+    console.error('❌ [database.query] Stack trace:', error.stack);
+    throw error;
+  }
 }
 
 module.exports = {

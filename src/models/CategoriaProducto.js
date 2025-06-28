@@ -204,8 +204,9 @@ class CategoriaProducto {
 
     let limitClause = '';
     if (limite) {
+      const limiteNum = Math.max(1, Math.min(100, parseInt(limite) || 10));
       limitClause = 'LIMIT ?';
-      params.push(limite);
+      params.push(limiteNum);
     }
 
     const sql = `

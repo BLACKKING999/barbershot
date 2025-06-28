@@ -25,7 +25,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         nombre, descripcion, extensiones_permitidas, tamano_maximo, activo
       ]);
 
@@ -51,7 +51,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener tipo de multimedia: ${error.message}`);
@@ -101,8 +101,8 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         tipos: rows,
@@ -148,7 +148,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Tipo de multimedia no encontrado');
@@ -175,7 +175,7 @@ class TipoMultimedia {
     const query = 'DELETE FROM tipos_multimedia WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar tipo de multimedia: ${error.message}`);
@@ -191,7 +191,7 @@ class TipoMultimedia {
     const query = 'SELECT COUNT(*) as total FROM multimedia WHERE tipo_id = ?';
 
     try {
-      const [rows] = await query(query, [tipo_id]);
+      const rows = await query(query, [tipo_id]);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar multimedia asociada: ${error.message}`);
@@ -227,7 +227,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite]);
+      const rows = await query(query, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar tipos por nombre: ${error.message}`);
@@ -253,7 +253,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tipos activos: ${error.message}`);
@@ -278,7 +278,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [`%${extension}%`]);
+      const rows = await query(query, [`%${extension}%`]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tipos por extensión: ${error.message}`);
@@ -301,7 +301,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -325,7 +325,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tipos más utilizados: ${error.message}`);
@@ -346,7 +346,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [result] = await query(query, [activo ? 1 : 0, id]);
+      const result = await query(query, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Tipo de multimedia no encontrado');
@@ -376,7 +376,7 @@ class TipoMultimedia {
     `;
 
     try {
-      const [rows] = await query(query, [tamano]);
+      const rows = await query(query, [tamano]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener tipos por tamaño: ${error.message}`);

@@ -31,16 +31,12 @@ exports.createCliente = asyncHandler(async (req, res, next) => {
 // @route   GET /api/clientes
 // @access  Private (Admin, Dueño, Empleado)
 exports.getAllClientes = asyncHandler(async (req, res, next) => {
-    try {
-        const clientes = await Cliente.obtenerTodos(req.query);
-        res.status(200).json({
-            success: true,
-            count: clientes.length,
-            data: clientes
-        });
-    } catch (error) {
-        next(new ErrorResponse(error.message, 500));
-    }
+    const clientes = await Cliente.obtenerTodos(req.query);
+    res.status(200).json({
+        success: true,
+        count: clientes.length,
+        data: clientes
+    });
 });
 
 // @desc    Obtener un cliente por ID

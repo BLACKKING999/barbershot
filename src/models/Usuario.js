@@ -52,7 +52,7 @@ class Usuario {
    */
   static async obtenerPorId(id) {
     const sql = `
-      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      SELECT u.*, r.nombre as rol_nombre
       FROM usuarios u
       INNER JOIN roles r ON u.rol_id = r.id
       WHERE u.id = ?
@@ -60,10 +60,11 @@ class Usuario {
 
     try {
       const rows = await query(sql, [id]);
-      if (rows[0]) {
-        rows[0].rol_permisos = JSON.parse(rows[0].rol_permisos || '[]');
+      if (rows.length > 0) {
+        // Como no hay columna permisos en la tabla roles, asignamos un array vacío por defecto
+        rows[0].rol_permisos = [];
       }
-      return rows[0] || null;
+      return rows.length > 0 ? this.sanearUsuario(rows[0]) : null;
     } catch (error) {
       throw new Error(`Error al obtener usuario: ${error.message}`);
     }
@@ -76,7 +77,7 @@ class Usuario {
    */
   static async obtenerPorEmail(email) {
     const sql = `
-      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      SELECT u.*, r.nombre as rol_nombre
       FROM usuarios u
       INNER JOIN roles r ON u.rol_id = r.id
       WHERE u.email = ?
@@ -84,10 +85,11 @@ class Usuario {
 
     try {
       const rows = await query(sql, [email]);
-      if (rows[0]) {
-        rows[0].rol_permisos = JSON.parse(rows[0].rol_permisos || '[]');
+      if (rows.length > 0) {
+        // Como no hay columna permisos en la tabla roles, asignamos un array vacío por defecto
+        rows[0].rol_permisos = [];
       }
-      return rows[0] || null;
+      return rows.length > 0 ? this.sanearUsuario(rows[0]) : null;
     } catch (error) {
       throw new Error(`Error al obtener usuario por email: ${error.message}`);
     }
@@ -99,8 +101,10 @@ class Usuario {
    * @returns {Promise<Array>} Lista de usuarios
    */
   static async obtenerTodos(filtros = {}) {
+    console.log('🔍 [Usuario.obtenerTodos] Iniciando con filtros:', filtros);
+    
     let sql = `
-      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      SELECT u.*, r.nombre as rol_nombre
       FROM usuarios u
       INNER JOIN roles r ON u.rol_id = r.id
     `;
@@ -132,27 +136,75 @@ class Usuario {
     // Ordenamiento
     sql += ' ORDER BY u.nombre, u.apellido';
 
-    // Paginación
+    // Paginación con validación
     if (filtros.limite) {
+      const limiteNum = Math.max(1, Math.min(100, parseInt(filtros.limite) || 10));
       sql += ' LIMIT ?';
-      params.push(filtros.limite);
+      params.push(limiteNum);
       
       if (filtros.offset) {
+        const offsetNum = Math.max(0, parseInt(filtros.offset) || 0);
         sql += ' OFFSET ?';
-        params.push(filtros.offset);
+        params.push(offsetNum);
       }
     }
 
-    try {
-      const rows = await query(sql, params);
-      
-      // Parsear permisos para cada usuario
-      rows.forEach(usuario => {
-        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
-      });
+    console.log('🔍 [Usuario.obtenerTodos] SQL final:', sql);
+    console.log('🔍 [Usuario.obtenerTodos] Parámetros:', params);
 
-      return rows;
+    try {
+      console.log('🔍 [Usuario.obtenerTodos] Ejecutando query...');
+      const rows = await query(sql, params);
+      console.log('🔍 [Usuario.obtenerTodos] Query ejecutada exitosamente. Filas obtenidas:', rows.length);
+      
+      if (rows.length > 0) {
+        console.log('🔍 [Usuario.obtenerTodos] Primera fila de ejemplo:', {
+          id: rows[0].id,
+          nombre: rows[0].nombre,
+          apellido: rows[0].apellido,
+          email: rows[0].email,
+          rol_id: rows[0].rol_id,
+          rol_nombre: rows[0].rol_nombre
+        });
+      }
+      
+      console.log('🔍 [Usuario.obtenerTodos] Iniciando procesamiento de filas...');
+      
+      // Procesar cada usuario y sanear
+      const usuariosProcesados = rows.map((usuario, index) => {
+        try {
+          console.log(`🔍 [Usuario.obtenerTodos] Procesando usuario ${index + 1}/${rows.length}:`, {
+            id: usuario.id,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido
+          });
+          
+          // Como no hay columna permisos en la tabla roles, asignamos un array vacío por defecto
+          usuario.rol_permisos = [];
+          console.log(`🔍 [Usuario.obtenerTodos] Permisos asignados para usuario ${usuario.id}:`, usuario.rol_permisos);
+          
+          // Sanear usuario
+          const usuarioSaneado = this.sanearUsuario(usuario);
+          console.log(`🔍 [Usuario.obtenerTodos] Usuario ${usuario.id} saneado:`, {
+            nombre: usuarioSaneado.nombre,
+            apellido: usuarioSaneado.apellido,
+            telefono: usuarioSaneado.telefono,
+            foto_perfil: usuarioSaneado.foto_perfil
+          });
+          
+          return usuarioSaneado;
+        } catch (usuarioError) {
+          console.error(`❌ [Usuario.obtenerTodos] Error procesando usuario ${index + 1}:`, usuarioError);
+          console.error(`❌ [Usuario.obtenerTodos] Datos del usuario problemático:`, usuario);
+          throw usuarioError;
+        }
+      });
+      
+      console.log('🔍 [Usuario.obtenerTodos] Procesamiento completado. Usuarios retornados:', usuariosProcesados.length);
+      return usuariosProcesados;
     } catch (error) {
+      console.error('❌ [Usuario.obtenerTodos] Error en obtenerTodos:', error);
+      console.error('❌ [Usuario.obtenerTodos] Stack trace:', error.stack);
       throw new Error(`Error al obtener usuarios: ${error.message}`);
     }
   }
@@ -331,7 +383,7 @@ class Usuario {
    */
   static async buscar(termino) {
     const sql = `
-      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      SELECT u.*, r.nombre as rol_nombre
       FROM usuarios u
       INNER JOIN roles r ON u.rol_id = r.id
       WHERE u.nombre LIKE ? OR u.apellido LIKE ? OR u.email LIKE ?
@@ -342,13 +394,11 @@ class Usuario {
 
     try {
       const rows = await query(sql, [busqueda, busqueda, busqueda]);
-      
-      // Parsear permisos para cada usuario
-      rows.forEach(usuario => {
-        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
+      // Asignar permisos como array vacío por defecto y sanear
+      return rows.map(usuario => {
+        usuario.rol_permisos = [];
+        return this.sanearUsuario(usuario);
       });
-
-      return rows;
     } catch (error) {
       throw new Error(`Error al buscar usuarios: ${error.message}`);
     }
@@ -361,7 +411,7 @@ class Usuario {
    */
   static async obtenerPorRol(rol_id) {
     const sql = `
-      SELECT u.*, r.nombre as rol_nombre, r.permisos as rol_permisos
+      SELECT u.*, r.nombre as rol_nombre
       FROM usuarios u
       INNER JOIN roles r ON u.rol_id = r.id
       WHERE u.rol_id = ?
@@ -370,13 +420,11 @@ class Usuario {
 
     try {
       const rows = await query(sql, [rol_id]);
-      
-      // Parsear permisos para cada usuario
-      rows.forEach(usuario => {
-        usuario.rol_permisos = JSON.parse(usuario.rol_permisos || '[]');
+      // Asignar permisos como array vacío por defecto y sanear
+      return rows.map(usuario => {
+        usuario.rol_permisos = [];
+        return this.sanearUsuario(usuario);
       });
-
-      return rows;
     } catch (error) {
       throw new Error(`Error al obtener usuarios por rol: ${error.message}`);
     }
@@ -403,6 +451,16 @@ class Usuario {
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
     }
+  }
+
+  // Función utilitaria para sanear campos nulos en usuario
+  static sanearUsuario(usuario) {
+    if (!usuario) return usuario;
+    usuario.nombre = usuario.nombre || '';
+    usuario.apellido = usuario.apellido || '';
+    usuario.telefono = usuario.telefono || '';
+    usuario.foto_perfil = usuario.foto_perfil || '';
+    return usuario;
   }
 }
 

@@ -177,6 +177,9 @@ class EstadoPago {
   static async obtenerPagosPorEstado(estado_pago_id, opciones = {}) {
     const { fecha_inicio = null, fecha_fin = null, limite = 50 } = opciones;
 
+    // Validar y sanear parámetro limite
+    const limiteNum = Math.max(1, Math.min(100, parseInt(limite) || 50));
+
     let whereConditions = ['p.estado_pago_id = ?'];
     let params = [estado_pago_id];
 
@@ -209,7 +212,7 @@ class EstadoPago {
     `;
 
     try {
-      const rows = await query(sql, [...params, limite]);
+      const rows = await query(sql, [...params, limiteNum]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener pagos por estado: ${error.message}`);

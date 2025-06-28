@@ -188,6 +188,9 @@ class EstadoCita {
   static async obtenerCitasPorEstado(estado_id, opciones = {}) {
     const { fecha_inicio = null, fecha_fin = null, limite = 50 } = opciones;
 
+    // Validar y sanear parámetro limite
+    const limiteNum = Math.max(1, Math.min(100, parseInt(limite) || 50));
+
     let whereConditions = ['c.estado_id = ?'];
     let params = [estado_id];
 
@@ -220,7 +223,7 @@ class EstadoCita {
     `;
 
     try {
-      const rows = await query(sql, [...params, limite]);
+      const rows = await query(sql, [...params, limiteNum]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener citas por estado: ${error.message}`);

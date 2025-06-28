@@ -42,7 +42,7 @@ router.route('/:id')
     .delete([
         authorize('administrador', 'dueño'),
         body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
-    ], handleValidation, ventaController.cancelarVenta);
+    ], handleValidation, ventaController.deleteVenta);
 
 // --- Ruta para cambiar estado de pago ---
 router.patch('/:id/estado-pago', [
@@ -64,6 +64,6 @@ router.get('/stats', [
     authorize('administrador', 'dueño'),
     query('fecha_inicio').optional().isISO8601().withMessage('Fecha de inicio debe ser válida'),
     query('fecha_fin').optional().isISO8601().withMessage('Fecha de fin debe ser válida')
-], handleValidation, ventaController.getStatsVentas);
+], handleValidation, ventaController.getEstadisticasVentas);
 
 module.exports = router; 

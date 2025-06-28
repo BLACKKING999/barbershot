@@ -27,7 +27,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         cita_id, calendario_id, event_id, evento_creado, evento_modificado, evento_eliminado
       ]);
 
@@ -66,7 +66,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener evento: ${error.message}`);
@@ -159,8 +159,8 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         eventos: rows,
@@ -209,7 +209,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Evento no encontrado');
@@ -230,7 +230,7 @@ class EventoGoogleCalendar {
     const query = 'DELETE FROM eventos_google_calendar WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar evento: ${error.message}`);
@@ -266,7 +266,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [event_id]);
+      const rows = await query(query, [event_id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener evento por event_id: ${error.message}`);
@@ -306,7 +306,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [cita_id]);
+      const rows = await query(query, [cita_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener eventos por cita: ${error.message}`);
@@ -346,7 +346,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [calendario_id]);
+      const rows = await query(query, [calendario_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener eventos por calendario: ${error.message}`);
@@ -393,7 +393,7 @@ class EventoGoogleCalendar {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await query(query, [
+      const rows = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -436,7 +436,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener eventos pendientes: ${error.message}`);
@@ -512,7 +512,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -542,7 +542,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por calendario: ${error.message}`);
@@ -583,7 +583,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, [fecha_inicio, fecha_fin]);
+      const rows = await query(query, [fecha_inicio, fecha_fin]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener eventos por rango de fechas: ${error.message}`);
@@ -647,7 +647,7 @@ class EventoGoogleCalendar {
     `;
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar eventos: ${error.message}`);

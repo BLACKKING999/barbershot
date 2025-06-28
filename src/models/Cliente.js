@@ -139,14 +139,16 @@ class Cliente {
       // Ordenamiento
       sql += ' ORDER BY u.nombre, u.apellido';
 
-      // Paginación
+      // Paginación con validación
       if (filtros.limite) {
+        const limiteNum = Math.max(1, Math.min(100, parseInt(filtros.limite) || 10));
         sql += ' LIMIT ?';
-        params.push(filtros.limite);
+        params.push(limiteNum);
         
         if (filtros.offset) {
+          const offsetNum = Math.max(0, parseInt(filtros.offset) || 0);
           sql += ' OFFSET ?';
-          params.push(filtros.offset);
+          params.push(offsetNum);
         }
       }
 

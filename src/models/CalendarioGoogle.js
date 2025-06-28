@@ -265,7 +265,7 @@ class CalendarioGoogle {
   static async buscarPorTexto(texto, opciones = {}) {
     const { limite = 20 } = opciones;
 
-    const sql = `
+    const query = `
       SELECT cg.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email,
@@ -276,19 +276,19 @@ class CalendarioGoogle {
       JOIN roles r ON u.rol_id = r.id
       LEFT JOIN eventos_google_calendar egc ON cg.id = egc.calendario_id
       WHERE cg.nombre_calendario LIKE ? 
-         OR cg.calendar_id LIKE ?
          OR u.nombre LIKE ?
          OR u.apellido LIKE ?
          OR u.email LIKE ?
+         OR cg.calendar_id LIKE ?
       GROUP BY cg.id
-      ORDER BY cg.created_at DESC
+      ORDER BY cg.nombre_calendario ASC
       LIMIT ?
     `;
 
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -318,7 +318,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener calendarios activos: ${error.message}`);
@@ -339,7 +339,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [result] = await pool.execute(query, [sincronizacion_activa ? 1 : 0, id]);
+      const result = await query(query, [sincronizacion_activa ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Calendario no encontrado');
@@ -367,7 +367,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [result] = await pool.execute(query, [
+      const result = await query(query, [
         token_acceso, token_refresco, expiracion_token, id
       ]);
       
@@ -395,7 +395,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [result] = await pool.execute(query, [fecha || new Date(), id]);
+      const result = await query(query, [fecha || new Date(), id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Calendario no encontrado');
@@ -426,7 +426,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [minutos]);
+      const rows = await query(query, [minutos]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener calendarios que necesitan sincronización: ${error.message}`);
@@ -450,7 +450,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -479,7 +479,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por usuario: ${error.message}`);
@@ -489,7 +489,7 @@ class CalendarioGoogle {
   /**
    * Verificar si el token ha expirado
    * @param {number} id - ID del calendario
-   * @returns {Promise<boolean>} True si el token ha expirado
+   * @returns {Promise<boolean>} Token expirado
    */
   static async tokenExpirado(id) {
     const query = `
@@ -499,20 +499,18 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(query, [id]);
       
-      if (rows.length === 0) {
-        throw new Error('Calendario no encontrado');
+      if (!rows[0] || !rows[0].expiracion_token) {
+        return true; // Sin token o token nulo se considera expirado
       }
 
-      const expiracion = rows[0].expiracion_token;
-      if (!expiracion) {
-        return true;
-      }
-
-      return new Date() > new Date(expiracion);
+      const expiracion = new Date(rows[0].expiracion_token);
+      const ahora = new Date();
+      
+      return expiracion < ahora;
     } catch (error) {
-      throw new Error(`Error al verificar expiración del token: ${error.message}`);
+      throw new Error(`Error al verificar expiración de token: ${error.message}`);
     }
   }
 
@@ -533,7 +531,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener calendarios con tokens expirados: ${error.message}`);
@@ -583,7 +581,7 @@ class CalendarioGoogle {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar calendarios: ${error.message}`);
