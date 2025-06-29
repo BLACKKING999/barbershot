@@ -152,7 +152,8 @@ class Servicio {
         const ordenamientos = {
           'nombre': 's.nombre',
           'precio': 's.precio',
-          'duracion': 's.duracion_minutos',
+
+          
           'categoria': 'cs.nombre',
           'destacado': 's.destacado DESC, s.nombre'
         };
