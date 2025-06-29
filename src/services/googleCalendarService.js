@@ -3,9 +3,22 @@ const { query } = require('../config/database');
 
 class GoogleCalendarService {
   constructor() {
+    const googleCredentials = {
+      type: process.env.GOOGLE_TYPE,
+      project_id: process.env.GOOGLE_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_AUTH_URI,
+      token_uri: process.env.GOOGLE_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
+      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN
+    };
     this.calendar = google.calendar({ version: 'v3' });
     this.auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      credentials: googleCredentials,
       scopes: ['https://www.googleapis.com/auth/calendar']
     });
   }
@@ -26,9 +39,9 @@ class GoogleCalendarService {
           c.id,
           c.fecha_hora_inicio,
           c.fecha_hora_fin,
-          CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+          u_cliente.nombre as cliente_nombre,
           u_cliente.email as cliente_email,
-          CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+          u_empleado.nombre as empleado_nombre,
           u_empleado.email as empleado_email,
           GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
         FROM citas c
@@ -64,10 +77,6 @@ class GoogleCalendarService {
           dateTime: cita.fecha_hora_fin.toISOString(),
           timeZone: 'America/Guayaquil',
         },
-        attendees: [
-          { email: cita.cliente_email },
-          { email: cita.empleado_email }
-        ],
         reminders: {
           useDefault: false,
           overrides: [
@@ -107,10 +116,10 @@ class GoogleCalendarService {
       console.log('📅 [googleCalendarService.actualizarEventoCita] Actualizando evento para cita:', citaId);
       
       // Obtener el ID del evento de Google Calendar
-      const eventoSql = 'SELECT google_event_id FROM citas WHERE id = ?';
+      const eventoSql = 'SELECT event_id_calendar FROM citas WHERE id = ?';
       const [cita] = await query(eventoSql, [citaId]);
       
-      if (!cita || !cita.google_event_id) {
+      if (!cita || !cita.event_id_calendar) {
         console.log('⚠️ [googleCalendarService.actualizarEventoCita] No se encontró evento de Google Calendar, creando uno nuevo');
         return await this.crearEventoCita(citaId);
       }
@@ -121,9 +130,9 @@ class GoogleCalendarService {
           c.id,
           c.fecha_hora_inicio,
           c.fecha_hora_fin,
-          CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+          u_cliente.nombre as cliente_nombre,
           u_cliente.email as cliente_email,
-          CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+          u_empleado.nombre as empleado_nombre,
           u_empleado.email as empleado_email,
           GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
         FROM citas c
@@ -159,10 +168,6 @@ class GoogleCalendarService {
           dateTime: citaInfo.fecha_hora_fin.toISOString(),
           timeZone: 'America/Guayaquil',
         },
-        attendees: [
-          { email: citaInfo.cliente_email },
-          { email: citaInfo.empleado_email }
-        ],
         reminders: {
           useDefault: false,
           overrides: [
@@ -180,7 +185,7 @@ class GoogleCalendarService {
       const response = await this.calendar.events.update({
         auth: auth,
         calendarId: calendarId,
-        eventId: cita.google_event_id,
+        eventId: cita.event_id_calendar,
         resource: event,
         sendUpdates: 'all'
       });
@@ -199,10 +204,10 @@ class GoogleCalendarService {
       console.log('📅 [googleCalendarService.cancelarEventoCita] Cancelando evento para cita:', citaId);
       
       // Obtener el ID del evento de Google Calendar
-      const eventoSql = 'SELECT google_event_id FROM citas WHERE id = ?';
+      const eventoSql = 'SELECT event_id_calendar FROM citas WHERE id = ?';
       const [cita] = await query(eventoSql, [citaId]);
       
-      if (!cita || !cita.google_event_id) {
+      if (!cita || !cita.event_id_calendar) {
         console.log('⚠️ [googleCalendarService.cancelarEventoCita] No se encontró evento de Google Calendar');
         return;
       }
@@ -213,7 +218,7 @@ class GoogleCalendarService {
       await this.calendar.events.delete({
         auth: auth,
         calendarId: calendarId,
-        eventId: cita.google_event_id,
+        eventId: cita.event_id_calendar,
         sendUpdates: 'all'
       });
 
@@ -230,7 +235,7 @@ class GoogleCalendarService {
 
   async guardarEventoId(citaId, eventoId) {
     try {
-      await query('UPDATE citas SET google_event_id = ? WHERE id = ?', [eventoId, citaId]);
+      await query('UPDATE citas SET event_id_calendar = ? WHERE id = ?', [eventoId, citaId]);
       console.log('✅ [googleCalendarService.guardarEventoId] ID de evento guardado');
     } catch (error) {
       console.error('❌ [googleCalendarService.guardarEventoId] Error:', error);
@@ -239,7 +244,7 @@ class GoogleCalendarService {
 
   async limpiarEventoId(citaId) {
     try {
-      await query('UPDATE citas SET google_event_id = NULL WHERE id = ?', [citaId]);
+      await query('UPDATE citas SET event_id_calendar = NULL WHERE id = ?', [citaId]);
       console.log('✅ [googleCalendarService.limpiarEventoId] ID de evento limpiado');
     } catch (error) {
       console.error('❌ [googleCalendarService.limpiarEventoId] Error:', error);

@@ -508,3 +508,574 @@ La API utiliza códigos de estado HTTP estándar para comunicar errores.
 ---
 
 Si tienes alguna pregunta, ¡no dudes en consultar! 🚀
+
+# 📋 Documentación API - Sistema de Reservas BarberShot
+
+## 🔗 Endpoints de Reserva
+
+### Base URL
+```
+http://localhost:5000/api/reservacion
+```
+
+---
+
+## 📋 1. Obtener Servicios Disponibles
+
+### Endpoint
+```
+GET /api/reservacion/servicios
+```
+
+### Descripción
+Obtiene todos los servicios activos disponibles para reservar, organizados por categorías.
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "categoria_id": 1,
+      "categoria_nombre": "Cortes",
+      "nombre": "Corte Clásico",
+      "descripcion": "Corte tradicional para caballeros",
+      "duracion": 30,
+      "precio": "15.00",
+      "imagen": "corte-clasico.jpg",
+      "activo": 1
+    },
+    {
+      "id": 2,
+      "categoria_id": 1,
+      "categoria_nombre": "Cortes",
+      "nombre": "Corte Moderno",
+      "descripcion": "Corte con técnicas modernas",
+      "duracion": 45,
+      "precio": "20.00",
+      "imagen": "corte-moderno.jpg",
+      "activo": 1
+    }
+  ]
+}
+```
+
+---
+
+## 👥 2. Obtener Empleados Disponibles
+
+### Endpoint
+```
+GET /api/reservacion/empleados?servicios[]=1&servicios[]=2
+```
+
+### Descripción
+Obtiene los empleados disponibles para los servicios seleccionados.
+
+### Parámetros Query
+- `servicios[]`: Array de IDs de servicios (requerido)
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "nombre": "Jose Caise",
+      "apellido": "",
+      "email": "josecaise393@gmail.com",
+      "telefono": "",
+      "titulo": "Barbero Senior",
+      "biografia": "Especialista en cortes modernos",
+      "activo": 1,
+      "especialidades": "Cortes Modernos, Barba"
+    }
+  ]
+}
+```
+
+---
+
+## ⏰ 3. Obtener Horarios Disponibles
+
+### Endpoint
+```
+GET /api/reservacion/horarios?empleadoId=1&fecha=2025-06-30&servicios[]=1
+```
+
+### Descripción
+Obtiene los horarios disponibles para un empleado en una fecha específica.
+
+### Parámetros Query
+- `empleadoId`: ID del empleado (requerido)
+- `fecha`: Fecha en formato YYYY-MM-DD (requerido)
+- `servicios[]`: Array de IDs de servicios (requerido)
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": [
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30"
+  ]
+}
+```
+
+---
+
+## 📅 4. Procesar Reservación
+
+### Endpoint
+```
+POST /api/reservacion/procesar
+```
+
+### Descripción
+Crea una nueva reservación con los datos proporcionados.
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Body Request
+```json
+{
+  "empleadoId": 1,
+  "servicios": [
+    {
+      "id": 1,
+      "cantidad": 1
+    },
+    {
+      "id": 2,
+      "cantidad": 1
+    }
+  ],
+  "fecha": "2025-06-30",
+  "horario": "10:30",
+  "total": 35.00
+}
+```
+
+### Estructura del Body
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `empleadoId` | number | ✅ | ID del empleado seleccionado |
+| `servicios` | array | ✅ | Array de servicios con id y cantidad |
+| `fecha` | string | ✅ | Fecha en formato YYYY-MM-DD |
+| `horario` | string | ✅ | Hora en formato HH:MM |
+| `total` | number | ✅ | Total de la reservación |
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "mensaje": "Reservación creada exitosamente",
+  "data": {
+    "citaId": 15,
+    "fechaHoraInicio": "2025-06-30T10:30:00.000Z",
+    "fechaHoraFin": "2025-06-30T11:15:00.000Z",
+    "empleado": {
+      "id": 1,
+      "nombre": "Jose Caise",
+      "email": "josecaise393@gmail.com"
+    },
+    "servicios": [
+      {
+        "id": 1,
+        "nombre": "Corte Clásico",
+        "precio": "15.00"
+      },
+      {
+        "id": 2,
+        "nombre": "Corte Moderno",
+        "precio": "20.00"
+      }
+    ],
+    "total": 35.00,
+    "estado": "Confirmada"
+  },
+  "notificaciones": {
+    "emailCliente": true,
+    "emailEmpleado": true,
+    "googleCalendar": true
+  }
+}
+```
+
+### Respuesta de Error (400/500)
+```json
+{
+  "success": false,
+  "mensaje": "Error al procesar la reservación",
+  "code": "RESERVATION_ERROR",
+  "errors": [
+    "El horario seleccionado no está disponible",
+    "El empleado no está disponible en esa fecha"
+  ]
+}
+```
+
+---
+
+## 📋 5. Obtener Mis Citas
+
+### Endpoint
+```
+GET /api/reservacion/mis-citas
+```
+
+### Descripción
+Obtiene todas las citas del usuario autenticado.
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 15,
+      "fechaHoraInicio": "2025-06-30T10:30:00.000Z",
+      "fechaHoraFin": "2025-06-30T11:15:00.000Z",
+      "estado": "Confirmada",
+      "empleado": {
+        "id": 1,
+        "nombre": "Jose Caise",
+        "email": "josecaise393@gmail.com"
+      },
+      "servicios": [
+        {
+          "id": 1,
+          "nombre": "Corte Clásico",
+          "precio": "15.00"
+        }
+      ],
+      "total": 15.00,
+      "pago": {
+        "id": 15,
+        "estado": "Pagado",
+        "metodo": "Efectivo"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## ❌ 6. Cancelar Cita
+
+### Endpoint
+```
+DELETE /api/reservacion/cancelar/:citaId
+```
+
+### Descripción
+Cancela una cita específica del usuario.
+
+### Headers
+```
+Authorization: Bearer <firebase_token>
+Content-Type: application/json
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "mensaje": "Cita cancelada exitosamente",
+  "data": {
+    "citaId": 15,
+    "estado": "Cancelada",
+    "fechaCancelacion": "2025-06-20T15:30:00.000Z"
+  }
+}
+```
+
+---
+
+## 🔐 Autenticación
+
+### Firebase Token
+Todas las peticiones requieren un token de Firebase válido en el header `Authorization`.
+
+```javascript
+// Ejemplo de obtención del token en el frontend
+const user = firebase.auth().currentUser;
+if (user) {
+  const token = await user.getIdToken();
+  // Usar el token en las peticiones
+}
+```
+
+---
+
+## 📱 Flujo de Reservación Completo
+
+### 1. Cargar Servicios
+```javascript
+const servicios = await fetch('/api/reservacion/servicios', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+### 2. Seleccionar Servicios y Obtener Empleados
+```javascript
+const empleados = await fetch(`/api/reservacion/empleados?servicios[]=1&servicios[]=2`, {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+### 3. Seleccionar Empleado y Obtener Horarios
+```javascript
+const horarios = await fetch(`/api/reservacion/horarios?empleadoId=1&fecha=2025-06-30&servicios[]=1`, {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+### 4. Procesar Reservación
+```javascript
+const reservacion = await fetch('/api/reservacion/procesar', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    empleadoId: 1,
+    servicios: [{ id: 1, cantidad: 1 }],
+    fecha: '2025-06-30',
+    horario: '10:30',
+    total: 15.00
+  })
+});
+```
+
+---
+
+## ⚠️ Casos de Error Comunes
+
+### 1. Token Expirado (401)
+```json
+{
+  "success": false,
+  "mensaje": "Token de autenticación expirado",
+  "code": "TOKEN_EXPIRED",
+  "action": "refresh_token"
+}
+```
+
+### 2. Horario No Disponible (400)
+```json
+{
+  "success": false,
+  "mensaje": "El horario seleccionado no está disponible",
+  "code": "HORARIO_NO_DISPONIBLE"
+}
+```
+
+### 3. Empleado No Disponible (400)
+```json
+{
+  "success": false,
+  "mensaje": "El empleado no está disponible en esa fecha",
+  "code": "EMPLEADO_NO_DISPONIBLE"
+}
+```
+
+### 4. Servicios No Válidos (400)
+```json
+{
+  "success": false,
+  "mensaje": "Uno o más servicios no son válidos",
+  "code": "SERVICIOS_INVALIDOS"
+}
+```
+
+---
+
+## 🔔 Notificaciones Automáticas
+
+### Al crear una reservación, el sistema automáticamente:
+
+1. **📧 Envía email de confirmación** al cliente
+2. **📧 Envía email de notificación** al empleado
+3. **📅 Crea evento en Google Calendar** (si está configurado)
+4. **📱 Envía notificación push** (si hay tokens FCM registrados)
+
+### Estados de Notificación
+```json
+{
+  "notificaciones": {
+    "emailCliente": true,      // Email enviado al cliente
+    "emailEmpleado": true,     // Email enviado al empleado
+    "googleCalendar": true,    // Evento creado en Google Calendar
+    "pushCliente": false,      // No hay token FCM del cliente
+    "pushEmpleado": false      // No hay token FCM del empleado
+  }
+}
+```
+
+---
+
+## 📊 Códigos de Estado HTTP
+
+| Código | Descripción |
+|--------|-------------|
+| 200 | ✅ Operación exitosa |
+| 201 | ✅ Recurso creado |
+| 400 | ❌ Error en los datos enviados |
+| 401 | ❌ No autenticado |
+| 403 | ❌ No autorizado |
+| 404 | ❌ Recurso no encontrado |
+| 500 | ❌ Error interno del servidor |
+
+---
+
+## 🛠️ Ejemplo de Implementación Frontend
+
+```javascript
+class ReservacionService {
+  constructor() {
+    this.baseURL = 'http://localhost:5000/api/reservacion';
+    this.token = null;
+  }
+
+  async setToken(token) {
+    this.token = token;
+  }
+
+  async getServicios() {
+    const response = await fetch(`${this.baseURL}/servicios`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+
+  async getEmpleados(servicios) {
+    const params = new URLSearchParams();
+    servicios.forEach(id => params.append('servicios[]', id));
+    
+    const response = await fetch(`${this.baseURL}/empleados?${params}`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+
+  async getHorarios(empleadoId, fecha, servicios) {
+    const params = new URLSearchParams({
+      empleadoId,
+      fecha,
+      ...servicios.reduce((acc, id) => {
+        acc[`servicios[]`] = id;
+        return acc;
+      }, {})
+    });
+    
+    const response = await fetch(`${this.baseURL}/horarios?${params}`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+
+  async procesarReservacion(datos) {
+    const response = await fetch(`${this.baseURL}/procesar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(datos)
+    });
+    return response.json();
+  }
+
+  async getMisCitas() {
+    const response = await fetch(`${this.baseURL}/mis-citas`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+
+  async cancelarCita(citaId) {
+    const response = await fetch(`${this.baseURL}/cancelar/${citaId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+}
+
+// Uso
+const reservacionService = new ReservacionService();
+await reservacionService.setToken(firebaseToken);
+
+// Obtener servicios
+const { data: servicios } = await reservacionService.getServicios();
+
+// Procesar reservación
+const resultado = await reservacionService.procesarReservacion({
+  empleadoId: 1,
+  servicios: [{ id: 1, cantidad: 1 }],
+  fecha: '2025-06-30',
+  horario: '10:30',
+  total: 15.00
+});
+```
+
+---
+
+## 📝 Notas Importantes
+
+1. **Autenticación**: Todas las peticiones requieren un token de Firebase válido
+2. **Fechas**: Usar formato YYYY-MM-DD para fechas
+3. **Horarios**: Usar formato HH:MM para horarios
+4. **IDs**: Todos los IDs son números enteros
+5. **Precios**: Los precios se manejan como strings con 2 decimales
+6. **Notificaciones**: Se envían automáticamente al crear una reservación
+7. **Google Calendar**: Se integra automáticamente si está configurado
+
+---
+
+**¿Necesitas ayuda con algún endpoint específico o tienes alguna duda sobre la implementación?**

@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Importar configuraciones
 const { inicializarBaseDatos } = require('./config/database');
-const { initializeFirebaseAdmin } = require('./config/firebaseAdmin');
+const { admin } = require('./config/firebaseAdmin');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -128,9 +128,6 @@ const inicializarServicios = async () => {
   try {
     // Inicializar base de datos
     await inicializarBaseDatos();
-    
-    // Inicializar Firebase Admin
-    initializeFirebaseAdmin();
     
     console.log('✅ Todos los servicios inicializados correctamente');
   } catch (error) {
