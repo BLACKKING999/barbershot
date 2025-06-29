@@ -4,90 +4,120 @@
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
 
+  // Utilidad para construir la respuesta de error
+  const buildErrorResponse = ({
+    status = 500,
+    mensaje = 'Error interno del servidor',
+    code = 'INTERNAL_ERROR',
+    action = undefined,
+    errors = undefined
+  }) => {
+    const response = {
+      success: false,
+      mensaje,
+      code
+    };
+    if (action) response.action = action;
+    if (errors) response.errors = errors;
+    // En desarrollo, incluir detalles del error
+    if (process.env.NODE_ENV !== 'production' && err.stack) {
+      response.stack = err.stack;
+    }
+    return res.status(status).json(response);
+  };
+
   // Errores de validación de Joi
   if (err.isJoi) {
-    return res.status(400).json({
-      success: false,
-      message: 'Datos de entrada inválidos',
+    return buildErrorResponse({
+      status: 400,
+      mensaje: 'Datos de entrada inválidos',
+      code: 'VALIDATION_ERROR',
       errors: err.details.map(detail => detail.message)
     });
   }
 
   // Errores de MySQL
   if (err.code === 'ER_DUP_ENTRY') {
-    return res.status(409).json({
-      success: false,
-      message: 'El registro ya existe en la base de datos'
+    return buildErrorResponse({
+      status: 409,
+      mensaje: 'El registro ya existe en la base de datos',
+      code: 'DUPLICATE_ENTRY'
     });
   }
-
   if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-    return res.status(400).json({
-      success: false,
-      message: 'Referencia inválida en la base de datos'
+    return buildErrorResponse({
+      status: 400,
+      mensaje: 'Referencia inválida en la base de datos',
+      code: 'INVALID_REFERENCE'
     });
   }
-
   if (err.code === 'ER_ROW_IS_REFERENCED_2') {
-    return res.status(400).json({
-      success: false,
-      message: 'No se puede eliminar el registro porque está siendo utilizado'
+    return buildErrorResponse({
+      status: 400,
+      mensaje: 'No se puede eliminar el registro porque está siendo utilizado',
+      code: 'ROW_REFERENCED'
     });
   }
 
   // Errores de autenticación
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de autenticación inválido'
+    return buildErrorResponse({
+      status: 401,
+      mensaje: 'Token de autenticación inválido',
+      code: 'TOKEN_INVALID',
+      action: 'LOGIN_AGAIN'
     });
   }
-
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de autenticación expirado'
+    return buildErrorResponse({
+      status: 401,
+      mensaje: 'Token de autenticación expirado',
+      code: 'TOKEN_EXPIRED',
+      action: 'REFRESH_TOKEN'
     });
   }
 
   // Errores de permisos
   if (err.name === 'PermissionError') {
-    return res.status(403).json({
-      success: false,
-      message: err.message || 'No tienes permisos para realizar esta acción'
+    return buildErrorResponse({
+      status: 403,
+      mensaje: err.message || 'No tienes permisos para realizar esta acción',
+      code: 'PERMISSION_DENIED'
     });
   }
 
   // Errores de validación de negocio
   if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: err.message
+    return buildErrorResponse({
+      status: 400,
+      mensaje: err.message,
+      code: 'VALIDATION_ERROR'
     });
   }
 
   // Errores de recursos no encontrados
   if (err.name === 'NotFoundError') {
-    return res.status(404).json({
-      success: false,
-      message: err.message || 'Recurso no encontrado'
+    return buildErrorResponse({
+      status: 404,
+      mensaje: err.message || 'Recurso no encontrado',
+      code: 'NOT_FOUND'
     });
   }
 
   // Errores de conflicto (por ejemplo, horario no disponible)
   if (err.name === 'ConflictError') {
-    return res.status(409).json({
-      success: false,
-      message: err.message
+    return buildErrorResponse({
+      status: 409,
+      mensaje: err.message,
+      code: 'CONFLICT'
     });
   }
 
   // Error por defecto
-  return res.status(500).json({
-    success: false,
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Error interno del servidor' 
-      : err.message
+  return buildErrorResponse({
+    status: 500,
+    mensaje: process.env.NODE_ENV === 'production' ? 'Error interno del servidor' : err.message,
+    code: 'INTERNAL_ERROR'
   });
 };
 

@@ -1,14 +1,34 @@
-const admin = require('firebase-admin');
+const { admin } = require('../config/firebaseAdmin');
 const { query } = require('../config/database');
+const emailService = require('./emailService');
 
 class NotificacionPushService {
   constructor() {
-    this.messaging = admin.messaging();
+    try {
+      // Verificar si Firebase Admin está inicializado
+      if (admin.apps.length > 0) {
+        this.messaging = admin.messaging();
+        this.firebaseAvailable = true;
+        console.log('✅ NotificacionPushService: Firebase Admin SDK disponible');
+      } else {
+        this.firebaseAvailable = false;
+        console.log('⚠️ NotificacionPushService: Firebase Admin SDK no disponible');
+      }
+    } catch (error) {
+      this.firebaseAvailable = false;
+      console.log('⚠️ NotificacionPushService: Error al inicializar Firebase Admin SDK');
+    }
   }
 
   async enviarNotificacionConfirmacion(citaId) {
     try {
       console.log('📱 [notificacionPushService.enviarNotificacionConfirmacion] Enviando confirmación para cita:', citaId);
+      
+      // Verificar si Firebase está disponible
+      if (!this.firebaseAvailable) {
+        console.log('⚠️ [notificacionPushService.enviarNotificacionConfirmacion] Firebase no disponible, saltando notificación push');
+        return;
+      }
       
       // Obtener información de la cita
       const citaSql = `
@@ -16,7 +36,7 @@ class NotificacionPushService {
           c.id,
           c.fecha_hora_inicio,
           c.cliente_id,
-          CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+          u_cliente.nombre as cliente_nombre,
           CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
           GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
         FROM citas c
@@ -104,13 +124,19 @@ class NotificacionPushService {
     try {
       console.log('📱 [notificacionPushService.enviarNotificacionRecordatorio] Enviando recordatorio para cita:', citaId);
       
+      // Verificar si Firebase está disponible
+      if (!this.firebaseAvailable) {
+        console.log('⚠️ [notificacionPushService.enviarNotificacionRecordatorio] Firebase no disponible, saltando notificación push');
+        return;
+      }
+      
       // Obtener información de la cita y tokens del cliente
       const citaSql = `
         SELECT 
           c.id,
           c.fecha_hora_inicio,
           c.cliente_id,
-          CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
+          u_cliente.nombre as cliente_nombre,
           CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
           GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
         FROM citas c
@@ -190,8 +216,9 @@ class NotificacionPushService {
           c.id,
           c.fecha_hora_inicio,
           c.empleado_id,
-          CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
-          CONCAT(u_empleado.nombre, ' ', u_empleado.apellido) as empleado_nombre,
+          u_cliente.nombre as cliente_nombre,
+          u_empleado.nombre as empleado_nombre,
+          u_empleado.email as empleado_email,
           GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
         FROM citas c
         INNER JOIN clientes cl ON c.cliente_id = cl.id
@@ -220,7 +247,43 @@ class NotificacionPushService {
       const tokens = await query(tokensSql, [cita.empleado_id]);
       
       if (tokens.length === 0) {
-        console.log('⚠️ [notificacionPushService.enviarNotificacionEmpleado] No se encontraron tokens FCM para el empleado');
+        console.log('⚠️ [notificacionPushService.enviarNotificacionEmpleado] No se encontraron tokens FCM para el empleado. Enviando correo electrónico.');
+        // Enviar correo electrónico al empleado
+        if (cita.empleado_email) {
+          const fecha = new Date(cita.fecha_hora_inicio).toLocaleDateString('es-ES');
+          const hora = new Date(cita.fecha_hora_inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          const asunto = '📅 Nueva Cita Asignada';
+          const mensaje = `Tienes una cita con ${cita.cliente_nombre} el ${fecha} a las ${hora}. Servicios: ${cita.servicios}`;
+          await emailService.transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: cita.empleado_email,
+            subject: asunto,
+            html: `<p>${mensaje}</p>`
+          });
+          console.log('✅ [notificacionPushService.enviarNotificacionEmpleado] Correo enviado al empleado.');
+        } else {
+          console.log('❌ [notificacionPushService.enviarNotificacionEmpleado] El empleado no tiene correo registrado.');
+        }
+        return;
+      }
+
+      // Verificar si Firebase está disponible para notificaciones push
+      if (!this.firebaseAvailable) {
+        console.log('⚠️ [notificacionPushService.enviarNotificacionEmpleado] Firebase no disponible, enviando solo correo electrónico.');
+        // Enviar correo electrónico al empleado como respaldo
+        if (cita.empleado_email) {
+          const fecha = new Date(cita.fecha_hora_inicio).toLocaleDateString('es-ES');
+          const hora = new Date(cita.fecha_hora_inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          const asunto = '📅 Nueva Cita Asignada';
+          const mensaje = `Tienes una cita con ${cita.cliente_nombre} el ${fecha} a las ${hora}. Servicios: ${cita.servicios}`;
+          await emailService.transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: cita.empleado_email,
+            subject: asunto,
+            html: `<p>${mensaje}</p>`
+          });
+          console.log('✅ [notificacionPushService.enviarNotificacionEmpleado] Correo enviado al empleado.');
+        }
         return;
       }
 

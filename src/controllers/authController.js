@@ -61,7 +61,9 @@ class AuthController {
       if (!res.headersSent) {
         res.status(500).json({
           success: false,
-          mensaje: 'Error obteniendo perfil'
+          mensaje: 'Ocurrió un error al obtener el perfil. Intenta nuevamente o contacta al soporte.',
+          code: 'PROFILE_FETCH_ERROR',
+          ...(process.env.NODE_ENV !== 'production' && { error: error.message })
         });
       }
     }
@@ -95,7 +97,9 @@ class AuthController {
       console.error('Error actualizando perfil:', error);
       res.status(500).json({
         success: false,
-        mensaje: 'Error actualizando perfil'
+        mensaje: 'No se pudo actualizar el perfil. Por favor, revisa los datos e intenta nuevamente.',
+        code: 'PROFILE_UPDATE_ERROR',
+        ...(process.env.NODE_ENV !== 'production' && { error: error.message })
       });
     }
   }
@@ -119,7 +123,9 @@ class AuthController {
       res.status(401).json({
         success: false,
         autenticado: false,
-        mensaje: 'Token inválido'
+        mensaje: 'No se pudo verificar la autenticación. El token es inválido o expiró.',
+        code: 'AUTH_VERIFICATION_ERROR',
+        ...(process.env.NODE_ENV !== 'production' && { error: error.message })
       });
     }
   }
@@ -148,7 +154,9 @@ class AuthController {
       console.error('Error obteniendo estadísticas:', error);
       res.status(500).json({
         success: false,
-        mensaje: 'Error obteniendo estadísticas'
+        mensaje: 'No se pudieron obtener las estadísticas. Intenta más tarde.',
+        code: 'STATS_FETCH_ERROR',
+        ...(process.env.NODE_ENV !== 'production' && { error: error.message })
       });
     }
   }
@@ -173,7 +181,9 @@ class AuthController {
       console.error('Error cerrando sesión:', error);
       res.status(500).json({
         success: false,
-        mensaje: 'Error cerrando sesión'
+        mensaje: 'No se pudo cerrar la sesión correctamente. Intenta nuevamente.',
+        code: 'LOGOUT_ERROR',
+        ...(process.env.NODE_ENV !== 'production' && { error: error.message })
       });
     }
   }
@@ -232,16 +242,19 @@ class AuthController {
         if (firebaseError.code === 'auth/id-token-expired') {
           return res.status(401).json({
             success: false,
-            mensaje: 'Token expirado. Por favor, renueva tu sesión.',
+            mensaje: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
             code: 'TOKEN_EXPIRED',
-            action: 'REFRESH_TOKEN'
+            action: 'REFRESH_TOKEN',
+            ...(process.env.NODE_ENV !== 'production' && { error: firebaseError.message })
           });
         }
         
         return res.status(401).json({
           success: false,
-          mensaje: 'Token inválido',
-          code: 'TOKEN_INVALID'
+          mensaje: 'El token proporcionado no es válido. Por favor, inicia sesión de nuevo.',
+          code: 'TOKEN_INVALID',
+          action: 'LOGIN_AGAIN',
+          ...(process.env.NODE_ENV !== 'production' && { error: firebaseError.message })
         });
       }
       
