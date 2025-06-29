@@ -1,5 +1,8 @@
 const authService = require('../services/authService');
 const { validationResult } = require('express-validator');
+const admin = require('firebase-admin');
+const asyncHandler = require('../middleware/asyncHandler');
+const ErrorResponse = require('../utils/errorResponse');
 
 class AuthController {
   /**
@@ -33,37 +36,6 @@ class AuthController {
   }
 
   /**
-   * Refrescar token
-   * POST /api/auth/refresh
-   */
-  async refrescarToken(req, res) {
-    try {
-      const { refreshToken } = req.body;
-
-      if (!refreshToken) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'Refresh token requerido'
-        });
-      }
-
-      const tokens = await authService.refrescarToken(refreshToken);
-
-      res.status(200).json({
-        success: true,
-        tokens,
-        mensaje: 'Token refrescado exitosamente'
-      });
-    } catch (error) {
-      console.error('Error refrescando token:', error);
-      res.status(401).json({
-        success: false,
-        mensaje: error.message
-      });
-    }
-  }
-
-  /**
    * Obtener perfil del usuario autenticado
    * GET /api/auth/profile
    */
@@ -72,16 +44,26 @@ class AuthController {
       const usuarioId = req.usuario.id;
       const datosCompletos = await authService.obtenerDatosCompletos(usuarioId);
 
+      if (!datosCompletos) {
+        // Si no existe el usuario en la base de datos, es un error grave
+        return res.status(500).json({
+          success: false,
+          mensaje: 'Error: usuario no encontrado en la base de datos.'
+        });
+      }
+
       res.status(200).json({
         success: true,
         usuario: datosCompletos
       });
     } catch (error) {
       console.error('Error obteniendo perfil:', error);
-      res.status(500).json({
-        success: false,
-        mensaje: 'Error obteniendo perfil'
-      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          mensaje: 'Error obteniendo perfil'
+        });
+      }
     }
   }
 
@@ -193,6 +175,79 @@ class AuthController {
         success: false,
         mensaje: 'Error cerrando sesión'
       });
+    }
+  }
+
+  /**
+   * @desc    Verificar estado del token
+   * @route   GET /api/auth/verify-token
+   * @access  Public
+   */
+  async verifyToken(req, res, next) {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          mensaje: 'Token de acceso requerido',
+          code: 'TOKEN_MISSING'
+        });
+      }
+      
+      const idToken = authHeader.substring(7);
+      
+      try {
+        // Verificar el token con Firebase Admin
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        
+        // Buscar usuario en la base de datos
+        const usuario = await authService.buscarUsuarioPorFirebaseUid(decodedToken.uid);
+        
+        if (!usuario) {
+          return res.status(401).json({
+            success: false,
+            mensaje: 'Usuario no registrado en la base de datos',
+            code: 'USER_NOT_FOUND'
+          });
+        }
+        
+        res.status(200).json({
+          success: true,
+          mensaje: 'Token válido',
+          usuario: {
+            id: usuario.id,
+            firebase_uid: usuario.firebase_uid,
+            email: usuario.email,
+            nombre: usuario.nombre || '',
+            apellido: usuario.apellido || '',
+            rol_id: usuario.rol_id,
+            picture: usuario.foto_perfil || ''
+          }
+        });
+        
+      } catch (firebaseError) {
+        console.error('Error verificando token de Firebase:', firebaseError);
+        
+        if (firebaseError.code === 'auth/id-token-expired') {
+          return res.status(401).json({
+            success: false,
+            mensaje: 'Token expirado. Por favor, renueva tu sesión.',
+            code: 'TOKEN_EXPIRED',
+            action: 'REFRESH_TOKEN'
+          });
+        }
+        
+        return res.status(401).json({
+          success: false,
+          mensaje: 'Token inválido',
+          code: 'TOKEN_INVALID'
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ [authController.verifyToken] Error:', error);
+      next(new ErrorResponse('Error verificando token', 500));
     }
   }
 }

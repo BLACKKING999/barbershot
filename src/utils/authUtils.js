@@ -1,4 +1,5 @@
-const jwt = require('jsonwebtoken');
+// Elimina todo el contenido relacionado con JWT, solo deja utilidades necesarias para Google/Firebase o deja el archivo vacío si no hay nada útil.
+
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 

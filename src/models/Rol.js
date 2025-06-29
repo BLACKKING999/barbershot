@@ -11,15 +11,15 @@ class Rol {
    * @returns {Promise<Object>} Rol creado
    */
   static async crear(rolData) {
-    const { nombre, descripcion, permisos = [] } = rolData;
+    const { nombre, descripcion } = rolData;
 
     const sql = `
-      INSERT INTO roles (nombre, descripcion, permisos)
-      VALUES (?, ?, ?)
+      INSERT INTO roles (nombre, descripcion)
+      VALUES (?, ?)
     `;
 
     try {
-      const result = await query(sql, [nombre, descripcion, JSON.stringify(permisos)]);
+      const result = await query(sql, [nombre, descripcion]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear rol: ${error.message}`);
@@ -44,7 +44,8 @@ class Rol {
     try {
       const rows = await query(sql, [id]);
       if (rows[0]) {
-        rows[0].permisos = JSON.parse(rows[0].permisos || '[]');
+        // Como no hay columna permisos en la tabla roles, asignamos un array vacío por defecto
+        rows[0].permisos = [];
       }
       return rows[0] || null;
     } catch (error) {
@@ -72,9 +73,9 @@ class Rol {
     try {
       const rows = await query(sql);
       
-      // Parsear permisos para cada rol
+      // Asignar permisos como array vacío por defecto para cada rol
       rows.forEach(rol => {
-        rol.permisos = JSON.parse(rol.permisos || '[]');
+        rol.permisos = [];
       });
 
       if (incluirUsuarios) {
@@ -97,19 +98,14 @@ class Rol {
    * @returns {Promise<Object>} Rol actualizado
    */
   static async actualizar(id, datos) {
-    const camposPermitidos = ['nombre', 'descripcion', 'permisos'];
+    const camposPermitidos = ['nombre', 'descripcion'];
     const camposActualizar = [];
     const valores = [];
 
     camposPermitidos.forEach(campo => {
       if (datos[campo] !== undefined) {
-        if (campo === 'permisos') {
-          camposActualizar.push(`${campo} = ?`);
-          valores.push(JSON.stringify(datos[campo]));
-        } else {
-          camposActualizar.push(`${campo} = ?`);
-          valores.push(datos[campo]);
-        }
+        camposActualizar.push(`${campo} = ?`);
+        valores.push(datos[campo]);
       }
     });
 
@@ -180,9 +176,9 @@ class Rol {
     try {
       const rows = await query(sql, [busquedaParam, busquedaParam]);
       
-      // Parsear permisos para cada rol
+      // Asignar permisos como array vacío por defecto para cada rol
       rows.forEach(rol => {
-        rol.permisos = JSON.parse(rol.permisos || '[]');
+        rol.permisos = [];
       });
 
       return rows;
@@ -249,7 +245,8 @@ class Rol {
     try {
       const rows = await query(sql, [nombre]);
       if (rows[0]) {
-        rows[0].permisos = JSON.parse(rows[0].permisos || '[]');
+        // Como no hay columna permisos en la tabla roles, asignamos un array vacío por defecto
+        rows[0].permisos = [];
       }
       return rows[0] || null;
     } catch (error) {
@@ -298,9 +295,9 @@ class Rol {
     try {
       const rows = await query(sql);
       
-      // Parsear permisos para cada rol
+      // Asignar permisos como array vacío por defecto para cada rol
       rows.forEach(rol => {
-        rol.permisos = JSON.parse(rol.permisos || '[]');
+        rol.permisos = [];
       });
 
       return rows;
@@ -345,18 +342,15 @@ class Rol {
     const rolesPorDefecto = [
       {
         nombre: 'Administrador',
-        descripcion: 'Acceso completo al sistema',
-        permisos: ['*']
+        descripcion: 'Acceso completo al sistema'
       },
       {
         nombre: 'Empleado',
-        descripcion: 'Acceso a funciones de empleado',
-        permisos: ['citas', 'clientes', 'servicios', 'productos']
+        descripcion: 'Acceso a funciones de empleado'
       },
       {
         nombre: 'Cliente',
-        descripcion: 'Acceso limitado para clientes',
-        permisos: ['perfil', 'citas_propias']
+        descripcion: 'Acceso limitado para clientes'
       }
     ];
 

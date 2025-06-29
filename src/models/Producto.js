@@ -66,54 +66,46 @@ class Producto {
   }
 
   /**
-   * Obtener todos los productos con paginación
-   * @param {Object} opciones - Opciones de paginación y filtros
-   * @returns {Promise<Object>} Lista de productos y metadatos
+   * Obtener todos los productos con paginación y filtros
+   * @param {Object} opciones - Opciones de consulta
+   * @returns {Promise<Object>} Productos y información de paginación
    */
   static async obtenerTodos(opciones = {}) {
     let {
       pagina = 1,
       limite = 10,
-      activo = null,
-      categoria_id = null,
-      busqueda = null,
       orden = 'nombre',
-      direccion = 'ASC'
+      direccion = 'ASC',
+      categoria_id,
+      activo,
+      busqueda
     } = opciones;
 
-    // Validar columnas y dirección
-    const columnasValidas = [
-      'id', 'categoria_id', 'nombre', 'descripcion', 'marca', 'precio_compra',
-      'precio_venta', 'stock', 'stock_minimo', 'codigo_barras', 'imagen', 'activo', 'created_at', 'updated_at'
-    ];
-    if (!columnasValidas.includes(orden)) orden = 'nombre';
-    direccion = (direccion && direccion.toUpperCase() === 'DESC') ? 'DESC' : 'ASC';
-
-    // Asegurar que sean números válidos
-    const pageNum = parseInt(pagina) > 0 ? parseInt(pagina) : 1;
-    const limitNum = parseInt(limite) > 0 ? parseInt(limite) : 10;
+    // Validar y asegurar que sean números válidos
+    let pageNum = parseInt(pagina);
+    let limitNum = parseInt(limite);
+    if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+    if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
     const offset = (pageNum - 1) * limitNum;
 
-    let whereConditions = [];
-    let params = [];
+    const params = [];
+    let whereClause = '';
 
-    if (activo !== null && activo !== '') {
-      whereConditions.push('productos.activo = ?');
-      params.push(Number(activo));
+    // Construir cláusula WHERE
+    if (categoria_id) {
+      whereClause += ' WHERE productos.categoria_id = ?';
+      params.push(categoria_id);
     }
-
-    if (categoria_id !== null && categoria_id !== '') {
-      whereConditions.push('productos.categoria_id = ?');
-      params.push(Number(categoria_id));
+    if (activo !== undefined && activo !== null && activo !== '') {
+      whereClause += whereClause ? ' AND productos.activo = ?' : ' WHERE productos.activo = ?';
+      params.push(activo);
     }
-
-    if (busqueda && busqueda.trim() !== '') {
-      whereConditions.push('(productos.nombre LIKE ? OR productos.descripcion LIKE ? OR productos.marca LIKE ? OR productos.codigo_barras LIKE ?)');
+    if (busqueda) {
+      const busquedaClause = ' AND (productos.nombre LIKE ? OR productos.descripcion LIKE ? OR productos.marca LIKE ?)';
+      whereClause += whereClause ? busquedaClause : ' WHERE (productos.nombre LIKE ? OR productos.descripcion LIKE ? OR productos.marca LIKE ?)';
       const busquedaParam = `%${busqueda}%`;
-      params.push(busquedaParam, busquedaParam, busquedaParam, busquedaParam);
+      params.push(busquedaParam, busquedaParam, busquedaParam);
     }
-
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const sql = `
       SELECT productos.id, productos.categoria_id, productos.nombre, productos.descripcion, productos.marca, productos.precio_compra, productos.precio_venta, productos.stock, productos.stock_minimo, productos.codigo_barras, productos.imagen, productos.activo, productos.created_at, productos.updated_at, categorias_productos.nombre as categoria_nombre

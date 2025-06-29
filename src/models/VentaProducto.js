@@ -94,6 +94,11 @@ class VentaProducto {
       direccion = 'DESC'
     } = opciones;
 
+    // Validar y sanear parámetros de paginación
+    const paginaNum = Math.max(1, parseInt(pagina) || 1);
+    const limiteNum = Math.max(1, Math.min(100, parseInt(limite) || 10));
+    const offset = (paginaNum - 1) * limiteNum;
+
     let whereConditions = [];
     let params = [];
 
@@ -129,7 +134,6 @@ class VentaProducto {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    const offset = (pagina - 1) * limite;
     const sql = `
       SELECT vp.*,
              CONCAT(u_cliente.nombre, ' ', u_cliente.apellido) as cliente_nombre,
@@ -158,16 +162,16 @@ class VentaProducto {
     `;
 
     try {
-      const rows = await query(sql, [...params, limite, offset]);
+      const rows = await query(sql, [...params, limiteNum, offset]);
       const countResult = await query(countSql, params);
 
       return {
         ventas: rows,
         paginacion: {
-          pagina,
-          limite,
+          pagina: paginaNum,
+          limite: limiteNum,
           total: countResult[0].total,
-          totalPaginas: Math.ceil(countResult[0].total / limite)
+          totalPaginas: Math.ceil(countResult[0].total / limiteNum)
         }
       };
     } catch (error) {

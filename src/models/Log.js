@@ -12,27 +12,25 @@ class Log {
    */
   static async crear(log) {
     const {
-      nivel,
-      mensaje,
-      contexto = null,
+      accion,
+      tabla_afectada = null,
+      registro_id = null,
+      detalles = null,
       usuario_id = null,
       ip = null,
       user_agent = null,
-      datos_adicionales = null,
-      fecha_creacion = new Date()
+      created_at = new Date()
     } = log;
 
     const sql = `
       INSERT INTO logs (
-        nivel, mensaje, contexto, usuario_id, ip, user_agent, 
-        datos_adicionales, fecha_creacion
+        accion, tabla_afectada, registro_id, detalles, usuario_id, ip, user_agent, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
       const result = await query(sql, [
-        nivel, mensaje, contexto, usuario_id, ip, user_agent, 
-        datos_adicionales, fecha_creacion
+        accion, tabla_afectada, registro_id, detalles, usuario_id, ip, user_agent, created_at
       ]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
@@ -102,7 +100,7 @@ class Log {
    * @returns {Promise<Object|null>} Log encontrado
    */
   static async obtenerPorId(id) {
-    const query = `
+    const sql = `
       SELECT l.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email
@@ -112,7 +110,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [id]);
+      const rows = await query(sql, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener log: ${error.message}`);
@@ -168,7 +166,7 @@ class Log {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const offset = (pagina - 1) * limite;
-    const query = `
+    const sql = `
       SELECT l.*,
              CONCAT(u.nombre, ' ', u.apellido) as usuario_nombre,
              u.email as usuario_email
@@ -179,15 +177,15 @@ class Log {
       LIMIT ? OFFSET ?
     `;
 
-    const countQuery = `
+    const countSql = `
       SELECT COUNT(*) as total
       FROM logs l
       ${whereClause}
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite, offset]);
-      const [countResult] = await pool.execute(countQuery, params);
+      const rows = await query(sql, [...params, limite, offset]);
+      const countResult = await query(countSql, params);
 
       return {
         logs: rows,
@@ -226,19 +224,17 @@ class Log {
     }
 
     valores.push(id);
-    const query = `
+    const sql = `
       UPDATE logs 
       SET ${camposActualizar.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
     try {
-      const [result] = await pool.execute(query, valores);
-      
+      const result = await query(sql, valores);
       if (result.affectedRows === 0) {
         throw new Error('Log no encontrado');
       }
-
       return this.obtenerPorId(id);
     } catch (error) {
       throw new Error(`Error al actualizar log: ${error.message}`);
@@ -251,10 +247,9 @@ class Log {
    * @returns {Promise<boolean>} Resultado de la operación
    */
   static async eliminar(id) {
-    const query = 'DELETE FROM logs WHERE id = ?';
-
+    const sql = 'DELETE FROM logs WHERE id = ?';
     try {
-      const [result] = await pool.execute(query, [id]);
+      const result = await query(sql, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar log: ${error.message}`);
@@ -287,7 +282,7 @@ class Log {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await pool.execute(query, [
+      const rows = await query(query, [
         searchTerm, searchTerm, searchTerm, searchTerm, limite
       ]);
       return rows;
@@ -317,7 +312,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [nivel, limite]);
+      const rows = await query(query, [nivel, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener logs por nivel: ${error.message}`);
@@ -345,7 +340,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [contexto, limite]);
+      const rows = await query(query, [contexto, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener logs por contexto: ${error.message}`);
@@ -373,7 +368,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [usuario_id, limite]);
+      const rows = await query(query, [usuario_id, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener logs por usuario: ${error.message}`);
@@ -410,7 +405,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(query, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener logs por rango de fechas: ${error.message}`);
@@ -441,7 +436,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [fechaLimite, limite]);
+      const rows = await query(query, [fechaLimite, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener errores recientes: ${error.message}`);
@@ -486,7 +481,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(query, params);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -527,7 +522,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por nivel: ${error.message}`);
@@ -570,7 +565,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, [...params, limite]);
+      const rows = await query(query, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por contexto: ${error.message}`);
@@ -599,8 +594,8 @@ class Log {
     const query = `DELETE FROM logs WHERE ${whereConditions.join(' AND ')}`;
 
     try {
-      const [result] = await pool.execute(query, params);
-      return result.affectedRows;
+      const rows = await query(query, params);
+      return rows.affectedRows;
     } catch (error) {
       throw new Error(`Error al limpiar logs antiguos: ${error.message}`);
     }
@@ -665,7 +660,7 @@ class Log {
     `;
 
     try {
-      const [rows] = await pool.execute(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar logs: ${error.message}`);

@@ -205,4 +205,23 @@ exports.getEstadisticasVentas = asyncHandler(async (req, res, next) => {
     } catch (error) {
         next(new ErrorResponse(error.message, 500));
     }
+});
+
+// @desc    Actualizar el estado de pago de una venta
+// @route   PATCH /api/ventas/:id/estado-pago
+// @access  Private (Admin, Dueño, Empleado)
+exports.updateEstadoPago = asyncHandler(async (req, res, next) => {
+    try {
+        const venta = await VentaProducto.actualizarEstadoPago(req.params.id, req.body);
+        if (!venta) {
+            return next(new ErrorResponse(`Venta no encontrada con el id ${req.params.id}`, 404));
+        }
+        res.status(200).json({
+            success: true,
+            mensaje: 'Estado de pago actualizado exitosamente',
+            data: venta
+        });
+    } catch (error) {
+        next(new ErrorResponse(error.message, 400));
+    }
 }); 

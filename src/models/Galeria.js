@@ -32,7 +32,7 @@ class Galeria {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         nombre, descripcion, tipo, slug, imagen_portada, empleado_id,
         servicio_id, activo, destacado, orden
       ]);
@@ -67,7 +67,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener galería: ${error.message}`);
@@ -98,7 +98,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [slug]);
+      const rows = await query(query, [slug]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener galería por slug: ${error.message}`);
@@ -186,8 +186,8 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         galerias: rows,
@@ -237,7 +237,7 @@ class Galeria {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Galería no encontrada');
@@ -258,7 +258,7 @@ class Galeria {
     const query = 'UPDATE galerias SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar galería: ${error.message}`);
@@ -292,7 +292,7 @@ class Galeria {
     const busquedaParam = `%${termino}%`;
 
     try {
-      const [rows] = await query(query, [busquedaParam, busquedaParam, limite]);
+      const rows = await query(query, [busquedaParam, busquedaParam, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar galerías: ${error.message}`);
@@ -333,7 +333,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite]);
+      const rows = await query(query, [...params, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener galerías por tipo: ${error.message}`);
@@ -363,7 +363,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [empleado_id, activo, limite]);
+      const rows = await query(query, [empleado_id, activo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener galerías por empleado: ${error.message}`);
@@ -394,7 +394,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [servicio_id, activo, limite]);
+      const rows = await query(query, [servicio_id, activo, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener galerías por servicio: ${error.message}`);
@@ -427,7 +427,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [limite]);
+      const rows = await query(query, [limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener galerías destacadas: ${error.message}`);
@@ -452,7 +452,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query, [galeria_id]);
+      const rows = await query(query, [galeria_id]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener elementos de galería: ${error.message}`);
@@ -476,7 +476,7 @@ class Galeria {
     `;
 
     try {
-      const [result] = await query(query, [
+      const result = await query(query, [
         galeria_id, multimedia_id, orden, es_antes, es_despues,
         orden, es_antes, es_despues
       ]);
@@ -497,7 +497,7 @@ class Galeria {
     const query = 'DELETE FROM galeria_multimedia WHERE galeria_id = ? AND multimedia_id = ?';
 
     try {
-      const [result] = await query(query, [galeria_id, multimedia_id]);
+      const result = await query(query, [galeria_id, multimedia_id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al remover elemento: ${error.message}`);
@@ -527,7 +527,7 @@ class Galeria {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -550,7 +550,7 @@ class Galeria {
     }
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows[0].total > 0;
     } catch (error) {
       throw new Error(`Error al verificar existencia: ${error.message}`);

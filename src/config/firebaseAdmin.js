@@ -49,4 +49,22 @@ const initializeFirebaseAdmin = () => {
   }
 };
 
+// Solo inicializar Firebase Admin si las credenciales están disponibles
+try {
+  const serviceAccount = require('../google-credentials.json');
+  
+  // Verificar que el archivo tiene la estructura correcta
+  if (serviceAccount && serviceAccount.project_id) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin SDK initialized successfully');
+  } else {
+    console.log('⚠️ Firebase Admin SDK: Credenciales de servicio no válidas');
+  }
+} catch (error) {
+  console.log('⚠️ Firebase Admin SDK: No se pudieron cargar las credenciales de servicio');
+  console.log('💡 Para usar notificaciones push, necesitas las credenciales de servicio de Firebase');
+}
+
 module.exports = { initializeFirebaseAdmin, admin }; 

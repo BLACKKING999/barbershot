@@ -64,16 +64,12 @@ exports.createEmpleado = asyncHandler(async (req, res, next) => {
 // @route   GET /api/empleados
 // @access  Private (Admin, Dueño, Empleado)
 exports.getAllEmpleados = asyncHandler(async (req, res, next) => {
-    try {
-        const empleados = await Empleado.obtenerTodos(req.query);
-        res.status(200).json({
-            success: true,
-            count: empleados.length,
-            data: empleados
-        });
-    } catch (error) {
-        next(new ErrorResponse(error.message, 500));
-    }
+    const empleados = await Empleado.obtenerTodos(req.query);
+    res.status(200).json({
+        success: true,
+        count: empleados.length,
+        data: empleados
+    });
 });
 
 // @desc    Obtener un empleado por ID

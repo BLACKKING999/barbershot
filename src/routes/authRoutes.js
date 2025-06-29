@@ -13,12 +13,6 @@ router.post('/login/google', [
     body('idToken').notEmpty().withMessage('El idToken de Google es requerido.'),
 ], handleValidation, authController.loginGoogle);
 
-// Refrescar Token
-router.post('/refresh', [
-    body('refreshToken').notEmpty().withMessage('El refreshToken es requerido.'),
-], handleValidation, authController.refrescarToken);
-
-
 // --- Rutas Privadas (requieren token de acceso) ---
 router.use(protect);
 
@@ -46,5 +40,15 @@ router.route('/profile')
         body('notificacion_sms').optional().isBoolean(),
         body('recordatorio_horas_antes').optional().isInt({ min: 1, max: 168 })
     ], handleValidation, authController.actualizarPerfil);
+
+// Verificar Token
+router.get('/verify', authController.verificarAutenticacion);
+
+// Verificar estado del token (pública)
+router.get('/verify-token', authController.verifyToken);
+
+// --- Rutas de Administrador/Dueño ---
+router.get('/stats', authorize('administrador', 'dueño'), authController.obtenerEstadisticas);
+
 
 module.exports = router;

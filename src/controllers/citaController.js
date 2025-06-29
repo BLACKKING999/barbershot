@@ -31,16 +31,12 @@ exports.createCita = asyncHandler(async (req, res, next) => {
 // @route   GET /api/citas
 // @access  Private (Admin, Dueño, Empleado)
 exports.getAllCitas = asyncHandler(async (req, res, next) => {
-    try {
-        const citas = await Cita.obtenerTodas(req.query);
-        res.status(200).json({
-            success: true,
-            count: citas.length,
-            data: citas
-        });
-    } catch (error) {
-        next(new ErrorResponse(error.message, 500));
-    }
+    const citas = await Cita.obtenerTodas(req.query);
+    res.status(200).json({
+        success: true,
+        count: citas.length,
+        data: citas
+    });
 });
 
 // @desc    Obtener una cita por ID

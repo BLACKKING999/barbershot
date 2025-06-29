@@ -24,7 +24,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [result] = await query(query, [nombre, valor, descripcion, activo]);
+      const result = await query(query, [nombre, valor, descripcion, activo]);
       return this.obtenerPorId(result.insertId);
     } catch (error) {
       throw new Error(`Error al crear configuración de Google: ${error.message}`);
@@ -40,7 +40,7 @@ class ConfiguracionGoogle {
     const query = 'SELECT * FROM configuraciones_google WHERE id = ?';
 
     try {
-      const [rows] = await query(query, [id]);
+      const rows = await query(query, [id]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener configuración de Google: ${error.message}`);
@@ -56,7 +56,7 @@ class ConfiguracionGoogle {
     const query = 'SELECT * FROM configuraciones_google WHERE nombre = ?';
 
     try {
-      const [rows] = await query(query, [nombre]);
+      const rows = await query(query, [nombre]);
       return rows[0] || null;
     } catch (error) {
       throw new Error(`Error al obtener configuración por nombre: ${error.message}`);
@@ -102,8 +102,8 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query, [...params, limite, offset]);
-      const [countResult] = await query(countQuery, params);
+      const rows = await query(query, [...params, limite, offset]);
+      const countResult = await query(countQuery, params);
 
       return {
         configuraciones: rows,
@@ -149,7 +149,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [result] = await query(query, valores);
+      const result = await query(query, valores);
       
       if (result.affectedRows === 0) {
         throw new Error('Configuración de Google no encontrada');
@@ -170,7 +170,7 @@ class ConfiguracionGoogle {
     const query = 'DELETE FROM configuraciones_google WHERE id = ?';
 
     try {
-      const [result] = await query(query, [id]);
+      const result = await query(query, [id]);
       return result.affectedRows > 0;
     } catch (error) {
       throw new Error(`Error al eliminar configuración de Google: ${error.message}`);
@@ -198,7 +198,7 @@ class ConfiguracionGoogle {
     const searchTerm = `%${texto}%`;
 
     try {
-      const [rows] = await query(query, [searchTerm, searchTerm, searchTerm, limite]);
+      const rows = await query(query, [searchTerm, searchTerm, searchTerm, limite]);
       return rows;
     } catch (error) {
       throw new Error(`Error al buscar configuraciones: ${error.message}`);
@@ -217,7 +217,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener configuraciones activas: ${error.message}`);
@@ -238,7 +238,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [result] = await query(query, [activo ? 1 : 0, id]);
+      const result = await query(query, [activo ? 1 : 0, id]);
       
       if (result.affectedRows === 0) {
         throw new Error('Configuración de Google no encontrada');
@@ -291,7 +291,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query, nombres);
+      const rows = await query(query, nombres);
       
       const configuraciones = {};
       rows.forEach(row => {
@@ -338,7 +338,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query, [`${tipo}%`]);
+      const rows = await query(query, [`${tipo}%`]);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener configuraciones por tipo: ${error.message}`);
@@ -361,7 +361,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows[0];
     } catch (error) {
       throw new Error(`Error al obtener estadísticas: ${error.message}`);
@@ -385,7 +385,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query);
+      const rows = await query(query);
       return rows;
     } catch (error) {
       throw new Error(`Error al obtener estadísticas por tipo: ${error.message}`);
@@ -485,7 +485,7 @@ class ConfiguracionGoogle {
     `;
 
     try {
-      const [rows] = await query(query, params);
+      const rows = await query(query, params);
       return rows;
     } catch (error) {
       throw new Error(`Error al exportar configuraciones: ${error.message}`);

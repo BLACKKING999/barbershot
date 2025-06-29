@@ -41,8 +41,13 @@ router.route('/:id')
     ], handleValidation, ventaController.getVentaById)
     .delete([
         authorize('administrador', 'dueño'),
+<<<<<<< HEAD
         param('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo') // ✅ corregido
     ], handleValidation, ventaController.deleteVenta); // ✅ corregido el nombre
+=======
+        body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
+    ], handleValidation, ventaController.deleteVenta);
+>>>>>>> 3970a45cfb852b18ace94f7c9a0466598a8c7390
 
 // --- Ruta para cambiar estado de pago ---
 router.patch('/:id/estado-pago', [

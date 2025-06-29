@@ -14,53 +14,49 @@ router.route('/')
     .post([
         authorize('administrador', 'dueño'),
         body('usuario_id').isInt({ min: 1 }).withMessage('ID de usuario debe ser un número positivo'),
-        body('nombre').isString({ min: 2, max: 100 }).withMessage('Nombre debe tener entre 2 y 100 caracteres'),
-        body('apellido').isString({ min: 2, max: 100 }).withMessage('Apellido debe tener entre 2 y 100 caracteres'),
-        body('telefono').optional().isString(),
-        body('email').optional().isEmail().withMessage('Email debe ser válido'),
+        body('titulo').optional().isString({ min: 2, max: 100 }).withMessage('Título debe tener entre 2 y 100 caracteres'),
+        body('biografia').optional().isString({ max: 1000 }).withMessage('Biografía debe tener máximo 1000 caracteres'),
         body('fecha_contratacion').optional().isISO8601().withMessage('Fecha de contratación debe ser válida'),
-        body('salario').optional().isFloat({ min: 0 }).withMessage('Salario debe ser un número positivo'),
-        body('activo').optional().isBoolean().withMessage('Activo debe ser true o false'),
-        body('foto_url').optional().isString()
+        body('numero_seguro_social').optional().isString({ min: 9, max: 11 }).withMessage('Número de seguro social debe tener entre 9 y 11 caracteres'),
+        body('salario_base').optional().isFloat({ min: 0 }).withMessage('Salario base debe ser un número positivo'),
+        body('comision_porcentaje').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un porcentaje entre 0 y 100'),
+        body('activo').optional().isInt({ min: 0, max: 1 }).withMessage('Activo debe ser 0 o 1')
     ], handleValidation, empleadoController.createEmpleado)
     .get([
         authorize('administrador', 'dueño', 'empleado'),
-        query('activo').optional().isBoolean().withMessage('Activo debe ser true o false'),
+        query('activo').optional().isInt({ min: 0, max: 1 }).withMessage('Activo debe ser 0 o 1'),
         query('search').optional().isString(),
-        query('ordenar_por').optional().isIn(['nombre', 'apellido', 'fecha_contratacion', 'salario']).withMessage('Ordenar por debe ser válido'),
+        query('ordenar_por').optional().isIn(['nombre', 'apellido', 'fecha_contratacion', 'salario_base']).withMessage('Ordenar por debe ser válido'),
         query('orden').optional().isIn(['ASC', 'DESC']).withMessage('Orden debe ser ASC o DESC')
     ], handleValidation, empleadoController.getAllEmpleados);
 
 router.route('/:id')
     .get([
-        authorize('administrador', 'dueño', 'empleado'),
-        body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
-    ], handleValidation, empleadoController.getEmpleadoById)
+        authorize('administrador', 'dueño', 'empleado')
+    ], empleadoController.getEmpleadoById)
     .put([
         authorize('administrador', 'dueño'),
-        body('nombre').optional().isString({ min: 2, max: 100 }).withMessage('Nombre debe tener entre 2 y 100 caracteres'),
-        body('apellido').optional().isString({ min: 2, max: 100 }).withMessage('Apellido debe tener entre 2 y 100 caracteres'),
-        body('telefono').optional().isString(),
-        body('email').optional().isEmail().withMessage('Email debe ser válido'),
+        body('titulo').optional().isString({ min: 2, max: 100 }).withMessage('Título debe tener entre 2 y 100 caracteres'),
+        body('biografia').optional().isString({ max: 1000 }).withMessage('Biografía debe tener máximo 1000 caracteres'),
         body('fecha_contratacion').optional().isISO8601().withMessage('Fecha de contratación debe ser válida'),
-        body('salario').optional().isFloat({ min: 0 }).withMessage('Salario debe ser un número positivo'),
-        body('activo').optional().isBoolean().withMessage('Activo debe ser true o false'),
-        body('foto_url').optional().isString()
+        body('numero_seguro_social').optional().isString({ min: 9, max: 11 }).withMessage('Número de seguro social debe tener entre 9 y 11 caracteres'),
+        body('salario_base').optional().isFloat({ min: 0 }).withMessage('Salario base debe ser un número positivo'),
+        body('comision_porcentaje').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un porcentaje entre 0 y 100'),
+        body('activo').optional().isInt({ min: 0, max: 1 }).withMessage('Activo debe ser 0 o 1')
     ], handleValidation, empleadoController.updateEmpleado)
     .delete([
-        authorize('administrador', 'dueño'),
-        body('id').isInt({ min: 1 }).withMessage('ID debe ser un número positivo')
-    ], handleValidation, empleadoController.deleteEmpleado);
+        authorize('administrador', 'dueño')
+    ], empleadoController.deleteEmpleado);
 
 // --- Rutas específicas ---
 router.get('/especialidad/:especialidad_id', [
     authorize('administrador', 'dueño', 'empleado'),
-    query('activo').optional().isBoolean().withMessage('Activo debe ser true o false')
+    query('activo').optional().isInt({ min: 0, max: 1 }).withMessage('Activo debe ser 0 o 1')
 ], handleValidation, empleadoController.getEmpleadosPorEspecialidad);
 
 router.get('/servicio/:servicio_id', [
     authorize('administrador', 'dueño', 'empleado'),
-    query('activo').optional().isBoolean().withMessage('Activo debe ser true o false')
+    query('activo').optional().isInt({ min: 0, max: 1 }).withMessage('Activo debe ser 0 o 1')
 ], handleValidation, empleadoController.getEmpleadosPorServicio);
 
 router.get('/:id/horarios', [

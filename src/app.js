@@ -32,6 +32,30 @@ const notificacionRoutes = require('./routes/notificacionRoutes');
 const horarioEmpleadoRoutes = require('./routes/horarioEmpleadoRoutes');
 const fichaClienteRoutes = require('./routes/fichaClienteRoutes');
 const multimediaRoutes = require('./routes/multimediaRoutes');
+const calendarioGoogleRoutes = require('./routes/calendarioGoogleRoutes');
+const configuracionGoogleRoutes = require('./routes/configuracionGoogleRoutes');
+const correoEnviadoRoutes = require('./routes/correoEnviadoRoutes');
+const correoProgramadoRoutes = require('./routes/correoProgramadoRoutes');
+const detalleVentaProductoRoutes = require('./routes/detalleVentaProductoRoutes');
+const empleadoEspecialidadRoutes = require('./routes/empleadoEspecialidadRoutes');
+const empleadoServicioRoutes = require('./routes/empleadoServicioRoutes');
+const eventoGoogleCalendarRoutes = require('./routes/eventoGoogleCalendarRoutes');
+const historialServicioClienteRoutes = require('./routes/historialServicioClienteRoutes');
+const notificacionPushEnviadaRoutes = require('./routes/notificacionPushEnviadaRoutes');
+const plantillaCorreoRoutes = require('./routes/plantillaCorreoRoutes');
+const logRoutes = require('./routes/logRoutes');
+const tipoMultimediaRoutes = require('./routes/tipoMultimediaRoutes');
+const notificacionPushRoutes = require('./routes/notificacionPushRoutes');
+const usuarioRoutes = require('./routes/usuarioRoutes');
+const rolRoutes = require('./routes/rolRoutes');
+const metodoPagoRoutes = require('./routes/metodoPagoRoutes');
+const estadoPagoRoutes = require('./routes/estadoPagoRoutes');
+const estadoCitaRoutes = require('./routes/estadoCitaRoutes');
+const ventaProductoRoutes = require('./routes/ventaProductoRoutes');
+const categoriaServicioRoutes = require('./routes/categoriaServicioRoutes');
+const categoriaProductoRoutes = require('./routes/categoriaProductoRoutes');
+const reservacionRoutes = require('./routes/reservacionRoutes');
+const empleadoCitaRoutes = require('./routes/empleadoCitaRoutes');
 
 // Importar middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -40,28 +64,28 @@ const asyncHandler = require('./middleware/asyncHandler');
 const app = express();
 
 // Configuración de rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // límite de 100 requests por ventana
-  message: {
-    success: false,
-    mensaje: 'Demasiadas solicitudes desde esta IP, inténtalo de nuevo más tarde.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutos
+//   max: 100, // límite de 100 requests por ventana
+//   message: {
+//     success: false,
+//     mensaje: 'Demasiadas solicitudes desde esta IP, inténtalo de nuevo más tarde.'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
 // Configuración de rate limiting para autenticación
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // límite de 5 intentos de login por ventana
-  message: {
-    success: false,
-    mensaje: 'Demasiados intentos de autenticación, inténtalo de nuevo más tarde.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutos
+//   max: 5, // límite de 5 intentos de login por ventana
+//   message: {
+//     success: false,
+//     mensaje: 'Demasiados intentos de autenticación, inténtalo de nuevo más tarde.'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
 // Middleware de seguridad
 app.use(helmet({
@@ -106,7 +130,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting general
-app.use(limiter);
+// app.use(limiter);
 
 // Inicializar servicios
 const inicializarServicios = async () => {
@@ -125,7 +149,8 @@ const inicializarServicios = async () => {
 };
 
 // Rutas de autenticación con rate limiting específico
-app.use('/api/auth', authLimiter, authRoutes);
+// app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Rutas principales de la aplicación
 app.use('/api/empleados', empleadoRoutes);
@@ -148,6 +173,30 @@ app.use('/api/notificaciones', notificacionRoutes);
 app.use('/api/horarios-empleado', horarioEmpleadoRoutes);
 app.use('/api/fichas-cliente', fichaClienteRoutes);
 app.use('/api/multimedia', multimediaRoutes);
+app.use('/api/calendarios-google', calendarioGoogleRoutes);
+app.use('/api/configuraciones-google', configuracionGoogleRoutes);
+app.use('/api/correos-enviados', correoEnviadoRoutes);
+app.use('/api/correos-programados', correoProgramadoRoutes);
+app.use('/api/detalles-venta-producto', detalleVentaProductoRoutes);
+app.use('/api/empleados-especialidad', empleadoEspecialidadRoutes);
+app.use('/api/empleados-servicio', empleadoServicioRoutes);
+app.use('/api/eventos-google-calendar', eventoGoogleCalendarRoutes);
+app.use('/api/historial-servicio-cliente', historialServicioClienteRoutes);
+app.use('/api/notificaciones-push-enviadas', notificacionPushEnviadaRoutes);
+app.use('/api/plantillas-correo', plantillaCorreoRoutes);
+app.use('/api/logs', logRoutes);
+app.use('/api/tipos-multimedia', tipoMultimediaRoutes);
+app.use('/api/notificaciones-push', notificacionPushRoutes);
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/roles', rolRoutes);
+app.use('/api/metodos-pago', metodoPagoRoutes);
+app.use('/api/estados-pago', estadoPagoRoutes);
+app.use('/api/estados-cita', estadoCitaRoutes);
+app.use('/api/ventas-producto', ventaProductoRoutes);
+app.use('/api/categorias-servicio', categoriaServicioRoutes);
+app.use('/api/categorias-producto', categoriaProductoRoutes);
+app.use('/api/reservacion', reservacionRoutes);
+app.use('/api/empleado-citas', empleadoCitaRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {
@@ -247,7 +296,7 @@ const iniciarServidor = async () => {
   try {
     await inicializarServicios();
     
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
       console.log(`📱 API disponible en http://localhost:${PORT}`);
       console.log(`🔐 Endpoints de autenticación en http://localhost:${PORT}/api/auth`);
@@ -273,6 +322,24 @@ const iniciarServidor = async () => {
       console.log(`📁 Gestión de multimedia en http://localhost:${PORT}/api/multimedia`);
       console.log(`💚 Health check en http://localhost:${PORT}/api/health`);
     });
+
+    // Manejar errores del servidor
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Error: El puerto ${PORT} ya está en uso.`);
+        console.log(`💡 Soluciones:`);
+        console.log(`   1. Terminar el proceso que usa el puerto ${PORT}:`);
+        console.log(`      Windows: netstat -ano | findstr :${PORT} && taskkill /PID <PID> /F`);
+        console.log(`      Linux/Mac: lsof -ti:${PORT} | xargs kill -9`);
+        console.log(`   2. Usar un puerto diferente: PORT=${PORT + 1} npm start`);
+        console.log(`   3. Esperar unos segundos y reintentar`);
+        process.exit(1);
+      } else {
+        console.error('❌ Error del servidor:', error);
+        process.exit(1);
+      }
+    });
+
   } catch (error) {
     console.error('❌ Error iniciando servidor:', error);
     process.exit(1);
