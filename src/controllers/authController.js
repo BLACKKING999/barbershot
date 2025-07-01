@@ -130,6 +130,8 @@ class AuthController {
     }
   }
 
+ 
+
   /**
    * Obtener estadísticas de autenticación (solo admin)
    * GET /api/auth/stats

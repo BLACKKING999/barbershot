@@ -101,12 +101,16 @@ class Empleado {
   static async obtenerTodos(filtros = {}) {
     try {
       let sql = `
-        SELECT e.*, u.nombre, u.apellido, u.email, u.telefono, u.foto_perfil,
-               u.activo, u.fecha_registro, u.ultimo_acceso,
-               r.nombre as rol_nombre
-        FROM empleados e
-        INNER JOIN usuarios u ON e.usuario_id = u.id
-        INNER JOIN roles r ON u.rol_id = r.id
+SELECT e.*, 
+       u.nombre, u.apellido, u.email, u.telefono, u.foto_perfil,
+       u.activo, u.fecha_registro, u.ultimo_acceso,
+       u.rol_id,                            -- 👈 AÑADE ESTO
+       r.nombre as rol_nombre
+FROM empleados e
+INNER JOIN usuarios u ON e.usuario_id = u.id
+INNER JOIN roles r ON u.rol_id = r.id
+
+
       `;
       
       const params = [];

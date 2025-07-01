@@ -462,6 +462,38 @@ class Usuario {
     usuario.foto_perfil = usuario.foto_perfil || '';
     return usuario;
   }
+
+
+  /**
+ * Obtener usuario por Firebase UID
+ * @param {string} firebase_uid - UID de Firebase
+ * @returns {Promise<Object|null>} Usuario encontrado
+ */
+static async obtenerPorFirebaseUid(firebase_uid) {
+  const sql = `
+    SELECT u.*, r.nombre as rol_nombre
+    FROM usuarios u
+    INNER JOIN roles r ON u.rol_id = r.id
+    WHERE u.firebase_uid = ?
+    LIMIT 1
+  `;
+
+  try {
+    const rows = await query(sql, [firebase_uid]);
+    if (rows.length > 0) {
+      rows[0].rol_permisos = [];
+    }
+    return rows.length > 0 ? this.sanearUsuario(rows[0]) : null;
+  } catch (error) {
+    throw new Error(`Error al obtener usuario por Firebase UID: ${error.message}`);
+  }
+}
+
+
+
+
+
+  
 }
 
 module.exports = Usuario; 

@@ -101,5 +101,27 @@ module.exports = {
       console.error('❌ [UsuarioController.eliminar] Error:', error);
       res.status(500).json({ mensaje: error.message });
     }
+  },
+
+
+  async obtenerPorFirebaseUid(req, res) {
+    const { firebase_uid } = req.params;
+    try {
+      const usuario = await Usuario.obtenerPorFirebaseUid(firebase_uid);
+      if (!usuario) {
+        return res.status(404).json({ mensaje: "Usuario no encontrado" });
+      }
+      res.json(usuario);
+    } catch (error) {
+      console.error("[UsuarioController.obtenerPorFirebaseUid]", error);
+      res.status(500).json({ mensaje: error.message });
+    }
   }
+  
+
+
+  
+
+
+  
 }; 

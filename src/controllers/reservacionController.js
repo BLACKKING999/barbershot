@@ -64,27 +64,28 @@ exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
     // Convertir servicios a array si viene como string
     const serviciosArray = Array.isArray(servicios) ? servicios : servicios.split(',');
     
-    // Consulta corregida usando los nombres correctos de las tablas
+    // Consulta con rol_id incluido
     const sql = `
       SELECT DISTINCT 
-        e.id,
-        u.nombre,
-        u.apellido,
-        u.email,
-        u.telefono,
-        e.titulo,
-        e.biografia,
-        e.activo,
-        GROUP_CONCAT(esp.nombre SEPARATOR ', ') as especialidades
-      FROM empleados e
-      INNER JOIN usuarios u ON e.usuario_id = u.id
-      INNER JOIN empleado_servicio es ON e.id = es.empleado_id
-      LEFT JOIN empleado_especialidad ee ON e.id = ee.empleado_id
-      LEFT JOIN especialidades esp ON ee.especialidad_id = esp.id
-      WHERE e.activo = 1 AND u.activo = 1
-        AND es.servicio_id IN (${serviciosArray.map(() => '?').join(',')})
-      GROUP BY e.id
-      ORDER BY u.nombre, u.apellido
+  e.id,
+  u.nombre,
+  u.apellido,
+  u.email,
+  u.telefono,
+  u.rol_id,
+  e.titulo,
+  e.biografia,
+  e.activo,
+  GROUP_CONCAT(esp.nombre SEPARATOR ', ') as especialidades
+FROM empleados e
+INNER JOIN usuarios u ON e.usuario_id = u.id
+LEFT JOIN empleado_servicio es ON e.id = es.empleado_id
+LEFT JOIN empleado_especialidad ee ON e.id = ee.empleado_id
+LEFT JOIN especialidades esp ON ee.especialidad_id = esp.id
+WHERE e.activo = 1 AND u.activo = 1 AND u.rol_id = 2
+GROUP BY e.id
+ORDER BY u.nombre, u.apellido
+
     `;
     
     const empleados = await query(sql, serviciosArray);
@@ -284,12 +285,16 @@ exports.procesarReservacion = asyncHandler(async (req, res, next) => {
  */
 exports.getMisCitas = asyncHandler(async (req, res, next) => {
   try {
+    console.log('req.usuario:', req.usuario);
+
     let clienteId = req.usuario.cliente_id;
+    console.log('clienteId inicial:', clienteId);
     
     // Si el usuario no es cliente, verificar si existe un registro
     if (!clienteId) {
       const clienteSql = 'SELECT id FROM clientes WHERE usuario_id = ?';
       const [cliente] = await query(clienteSql, [req.usuario.id]);
+      console.log('Cliente desde BD:', cliente);
       
       if (!cliente) {
         // Si no existe cliente, devolver array vacío
@@ -301,26 +306,31 @@ exports.getMisCitas = asyncHandler(async (req, res, next) => {
       }
       
       clienteId = cliente.id;
+      console.log('clienteId asignado:', clienteId);
     }
     
     const sql = `
-      SELECT c.*, 
-             CONCAT(e.nombre, ' ', e.apellido) as empleado_nombre,
-             ec.nombre as estado_nombre,
-             ec.color as estado_color,
-             GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
-      FROM citas c
-      INNER JOIN empleados e ON c.empleado_id = e.id
-      INNER JOIN estados_citas ec ON c.estado_id = ec.id
-      LEFT JOIN cita_servicio cs ON c.id = cs.cita_id
-      LEFT JOIN servicios s ON cs.servicio_id = s.id
-      WHERE c.cliente_id = ?
-      GROUP BY c.id
-      ORDER BY c.fecha_hora_inicio DESC
-    `;
-    
+    SELECT 
+     c.*, 
+     CONCAT(u.nombre, ' ', u.apellido) as empleado_nombre,
+     ec.nombre as estado_nombre,
+     ec.color as estado_color,
+     GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
+   FROM citas c
+   INNER JOIN empleados e ON c.empleado_id = e.id
+   INNER JOIN usuarios u ON e.usuario_id = u.id
+   INNER JOIN estados_citas ec ON c.estado_id = ec.id
+   LEFT JOIN cita_servicio cs ON c.id = cs.cita_id
+   LEFT JOIN servicios s ON cs.servicio_id = s.id
+   WHERE c.cliente_id = ?
+     AND c.estado_id != 5
+   GROUP BY c.id
+   ORDER BY c.fecha_hora_inicio DESC
+   `;
+   
     const citas = await query(sql, [clienteId]);
-    
+    console.log('Citas encontradas:', citas.length);
+
     res.status(200).json({
       success: true,
       count: citas.length,

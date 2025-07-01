@@ -24,9 +24,10 @@ class AuthService {
    */
   async loginGoogle(idToken, userAgent, ip) {
     try {
-      // 1. Validar token de Google
+      // Validar token de Google
       const decodedToken = await admin.auth().verifyIdToken(idToken);
-      // 2. Buscar o crear usuario en la base de datos
+  
+      // Buscar o crear usuario
       let usuario = await this.buscarUsuarioPorFirebaseUid(decodedToken.uid);
       if (!usuario) {
         usuario = await this.crearUsuarioDesdeGoogle(decodedToken);
@@ -36,19 +37,30 @@ class AuthService {
       if (!usuario.activo) {
         throw new Error('Usuario inactivo. Contacte al administrador.');
       }
-      // 3. Registrar log de auditoría
+  
+      // Registrar log
       await this.registrarLog(usuario.id, 'LOGIN_GOOGLE', 'usuarios', usuario.id, {
         email: usuario.email,
         userAgent,
-        ip
+        ip,
       });
-      // 4. Retornar usuario autenticado
-      return { usuario };
+  
+      // Generar tokens JWT
+      const accessToken = this.generarAccessToken(usuario);
+      const refreshToken = this.generarRefreshToken(usuario);
+  
+      // Retornar usuario + tokens
+      return {
+        usuario,
+        accessToken,
+        refreshToken,
+      };
+  
     } catch (error) {
       throw error;
     }
   }
-
+  
   /**
    * Buscar usuario por Firebase UID
    */
@@ -68,11 +80,14 @@ class AuthService {
    * Crear nuevo usuario desde datos de Google
    */
   async crearUsuarioDesdeGoogle(decodedToken) {
-    const connection = await query.pool.getConnection ? query.pool.getConnection() : null;
+    const connection = await pool.getConnection();
     try {
-      if (connection) await connection.beginTransaction();
-      const rolId = 3;
-      const [result] = await query(
+      await connection.beginTransaction();
+  
+      const rolId = 1;
+  
+      // Insertar usuario
+      const [result] = await connection.query(
         `INSERT INTO usuarios (firebase_uid, email, nombre, apellido, foto_perfil, rol_id, activo) 
          VALUES (?, ?, ?, ?, ?, ?, 1)`,
         [
@@ -84,24 +99,33 @@ class AuthService {
           rolId
         ]
       );
-      const usuarioId = result.insertId || (result[0] && result[0].insertId);
-      await query(
+  
+      const usuarioId = result.insertId;
+  
+      // Insertar cliente relacionado
+      await connection.query(
         'INSERT INTO clientes (usuario_id) VALUES (?)',
         [usuarioId]
       );
-      if (connection) await connection.commit();
-      const rows = await query(
+  
+      await connection.commit();
+  
+      // Obtener usuario creado
+      const [rows] = await connection.query(
         'SELECT * FROM usuarios WHERE id = ?',
         [usuarioId]
       );
+  
       return rows[0];
+  
     } catch (error) {
-      if (connection) await connection.rollback();
+      await connection.rollback();
       throw new Error(`Error creando usuario: ${error.message}`);
     } finally {
-      if (connection) connection.release();
+      connection.release();
     }
   }
+  
 
   /**
    * Actualizar último acceso
@@ -199,6 +223,21 @@ class AuthService {
       console.error('[obtenerDatosCompletos] Error:', error);
       throw new Error(`Error obteniendo datos completos: ${error.message}`);
     }
+  }
+
+  generarAccessToken(usuario) {
+    // El payload puede incluir lo que necesites (id, email, rol, etc.)
+    const payload = {
+      id: usuario.id,
+      email: usuario.email,
+      rol: usuario.rol_id,
+    };
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+  }
+
+  generarRefreshToken(usuario) {
+    const payload = { id: usuario.id };
+    return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
   }
 }
 

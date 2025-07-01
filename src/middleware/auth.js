@@ -430,41 +430,35 @@ const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        mensaje: 'Token de acceso de Google requerido'
-      });
+      return res.status(401).json({ success: false, mensaje: 'Token de acceso requerido' });
     }
-    const idToken = authHeader.substring(7);
-    // Verificar el token con Firebase Admin
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    // Buscar usuario en la base de datos por firebase_uid
-    const usuario = await authService.buscarUsuarioPorFirebaseUid(decodedToken.uid);
-    if (!usuario) {
-      return res.status(401).json({
-        success: false,
-        mensaje: 'Usuario no registrado en la base de datos'
-      });
+    const token = authHeader.substring(7);
+
+    // Verificar y decodificar token JWT
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Buscar usuario en base de datos y verificar que esté activo
+    const rows = await query(
+      'SELECT id, email, rol_id, activo FROM usuarios WHERE id = ? AND activo = 1',
+      [decoded.id]
+    );
+    if (!rows[0]) {
+      return res.status(401).json({ success: false, mensaje: 'Usuario no autorizado o inactivo' });
     }
+
+    // Adjuntar datos usuario a la request
     req.usuario = {
-      id: usuario.id,
-      firebase_uid: usuario.firebase_uid,
-      email: usuario.email,
-      nombre: usuario.nombre || '',
-      apellido: usuario.apellido || '',
-      rol_id: usuario.rol_id,
-      picture: usuario.foto_perfil || ''
+      id: rows[0].id,
+      email: rows[0].email,
+      rol_id: rows[0].rol_id,
     };
+
     next();
   } catch (error) {
-    console.error('Error autenticando con Google:', error);
-    res.status(401).json({
-      success: false,
-      mensaje: 'Token de Google inválido o expirado'
-    });
+    console.error('Error autenticando token:', error);
+    return res.status(401).json({ success: false, mensaje: 'Token inválido o expirado' });
   }
 };
-
 // Función para autorizar roles específicos
 const authorize = (...roles) => {
   return (req, res, next) => {

@@ -40,9 +40,8 @@ router.post('/procesar', [
 // @desc    Obtener citas del cliente autenticado
 // @route   GET /api/reservacion/mis-citas
 // @access  Private (Cliente)
-router.get('/mis-citas', [
-  protect
-], reservacionController.getMisCitas);
+
+router.get('/mis-citas', protect, reservacionController.getMisCitas);
 
 // @desc    Cancelar cita del cliente
 // @route   PUT /api/reservacion/cancelar/:id
