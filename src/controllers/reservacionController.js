@@ -124,14 +124,35 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
     if (diaSemana === 0) {
       // Domingo
       horariosDisponibles = [
-        '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
-        '13:00', '13:30'
+        { inicio: '09:30', fin: '10:00' },
+        { inicio: '10:00', fin: '10:30' },
+        { inicio: '10:30', fin: '11:00' },
+        { inicio: '11:00', fin: '11:30' },
+        { inicio: '11:30', fin: '12:00' },
+        { inicio: '12:00', fin: '12:30' },
+        { inicio: '12:30', fin: '13:00' },
+        { inicio: '13:00', fin: '13:30' },
+        { inicio: '13:30', fin: '14:00' }
       ];
     } else {
       // Lunes a Sábado
       horariosDisponibles = [
-        '09:15', '09:45', '10:15', '10:45', '11:15', '11:45', '12:15', '12:45',
-        '14:15', '14:45', '15:15', '15:45', '16:15', '16:45', '17:15', '17:45', '18:15'
+        { inicio: '09:15', fin: '09:45' },
+        { inicio: '09:45', fin: '10:15' },
+        { inicio: '10:15', fin: '10:45' },
+        { inicio: '10:45', fin: '11:15' },
+        { inicio: '11:15', fin: '11:45' },
+        { inicio: '11:45', fin: '12:15' },
+        { inicio: '12:15', fin: '12:45' },
+        { inicio: '14:15', fin: '14:45' },
+        { inicio: '14:45', fin: '15:15' },
+        { inicio: '15:15', fin: '15:45' },
+        { inicio: '15:45', fin: '16:15' },
+        { inicio: '16:15', fin: '16:45' },
+        { inicio: '16:45', fin: '17:15' },
+        { inicio: '17:15', fin: '17:45' },
+        { inicio: '17:45', fin: '18:15' },
+        { inicio: '18:15', fin: '18:45' }
       ];
     }
 
@@ -139,7 +160,7 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
     const horariosOcupados = [];
     
     const horariosLibres = horariosDisponibles.filter(horario => 
-      !horariosOcupados.includes(horario)
+      !horariosOcupados.some(ocupado => ocupado.inicio === horario.inicio && ocupado.fin === horario.fin)
     );
     
     console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios disponibles:', horariosLibres.length);
@@ -397,4 +418,4 @@ exports.cancelarCita = asyncHandler(async (req, res, next) => {
     console.error('❌ [reservacionController.cancelarCita] Error:', error);
     next(new ErrorResponse('Error al cancelar la cita', 500));
   }
-});  
+});   
