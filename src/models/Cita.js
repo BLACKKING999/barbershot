@@ -15,6 +15,9 @@ class Cita {
       const {
         cliente_id,
         empleado_id,
+        fecha,
+        hora_inicio,
+        hora_fin,
         fecha_hora_inicio,
         fecha_hora_fin,
         estado_id,
@@ -27,7 +30,11 @@ class Cita {
         meet_link,
         origen
       } = citaData;
-
+  
+      // Construir fechas si no vienen ya formadas
+      const inicio = fecha_hora_inicio || `${fecha} ${hora_inicio}`;
+      const fin = fecha_hora_fin || `${fecha} ${hora_fin}`;
+  
       const sql = `
         INSERT INTO citas (
           cliente_id, empleado_id, fecha_hora_inicio, fecha_hora_fin,
@@ -36,21 +43,22 @@ class Cita {
           meet_link, origen
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-
+  
       const params = [
-        cliente_id, empleado_id, fecha_hora_inicio, fecha_hora_fin,
+        cliente_id, empleado_id, inicio, fin,
         estado_id, notas, recordatorio_enviado, recordatorio_correo_enviado,
         recordatorio_push_enviado, sincronizado_calendar, event_id_calendar,
         meet_link, origen
       ];
-
+  
       const result = await query(sql, params);
-      return { id: result.insertId, ...citaData };
+      return { id: result.insertId, ...citaData, fecha_hora_inicio: inicio, fecha_hora_fin: fin };
     } catch (error) {
       console.error('Error creando cita:', error);
       throw error;
     }
   }
+  
 
   /**
    * Obtener cita por ID

@@ -90,4 +90,9 @@ router.get('/horarios-disponibles', [
     query('servicio_id').optional().isInt({ min: 1 }).withMessage('ID de servicio debe ser un número positivo')
 ], handleValidation, citaController.getHorariosDisponibles);
 
+router.get('/estados', [
+    authorize('administrador', 'dueño', 'empleado')
+  ], citaController.getStatsCitas);
+  
+
 module.exports = router; 

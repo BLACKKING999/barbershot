@@ -265,7 +265,7 @@ const verificarAccesoEmpleado = async (req, res, next) => {
     }
     
     // Los clientes no pueden acceder a datos de empleados
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       return res.status(403).json({
         success: false,
         mensaje: 'Acceso denegado. No tienes permisos para acceder a datos de empleados.'
@@ -297,7 +297,7 @@ const verificarPermisosCita = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier cita
-    if (req.usuario.rol_id === 1) {
+    if (req.usuario.rol_id === 3) {
       return next();
     }
     
@@ -326,7 +326,7 @@ const verificarPermisosCita = async (req, res, next) => {
     }
     
     // Si es cliente, verificar si es el cliente de la cita
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       const [clienteRows] = await query(
         'SELECT id FROM clientes WHERE usuario_id = ?',
         [req.usuario.id]
@@ -366,7 +366,7 @@ const verificarPermisosPago = async (req, res, next) => {
     }
     
     // Si es admin, puede acceder a cualquier pago
-    if (req.usuario.rol_id === 1) {
+    if (req.usuario.rol_id === 3) {
       return next();
     }
     
@@ -398,7 +398,7 @@ const verificarPermisosPago = async (req, res, next) => {
     }
     
     // Si es cliente, verificar si es el cliente de la cita
-    if (req.usuario.rol_id === 3) {
+    if (req.usuario.rol_id === 1) {
       const [clienteRows] = await query(
         'SELECT id FROM clientes WHERE usuario_id = ?',
         [req.usuario.id]
@@ -471,9 +471,10 @@ const authorize = (...roles) => {
     }
     // Convertir nombres de roles a IDs
     const roleMap = {
-      'administrador': 1,
+      'administrador': 3,
       'empleado': 2,
-      'cliente': 3
+      'cliente': 1,
+      'dev':4
     };
     const roleIds = roles.map(role => roleMap[role] || role);
     console.log('[authorize] Usuario:', req.usuario, 'Roles permitidos:', roleIds);

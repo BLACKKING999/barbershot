@@ -53,18 +53,9 @@ exports.getServiciosDisponibles = asyncHandler(async (req, res, next) => {
  */
 exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
   try {
-    const { servicios } = req.query;
-    
-    console.log('🔍 [reservacionController.getEmpleadosDisponibles] Parámetros:', { servicios });
-    
-    if (!servicios) {
-      return next(new ErrorResponse('servicios es requerido', 400));
-    }
-    
-    // Convertir servicios a array si viene como string
-    const serviciosArray = Array.isArray(servicios) ? servicios : servicios.split(',');
-    
-    // Consulta corregida usando los nombres correctos de las tablas
+    // Si quieres, puedes mantener la lógica para filtrar por servicios
+    // pero aquí solo filtro por rol 2
+
     const sql = `
       SELECT DISTINCT 
         e.id,
@@ -72,29 +63,33 @@ exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
         u.apellido,
         u.email,
         u.telefono,
+        u.foto_perfil,
+        u.rol_id,
+        r.nombre AS rol_nombre,
         e.titulo,
         e.biografia,
         e.activo,
         GROUP_CONCAT(esp.nombre SEPARATOR ', ') as especialidades
       FROM empleados e
       INNER JOIN usuarios u ON e.usuario_id = u.id
-      INNER JOIN empleado_servicio es ON e.id = es.empleado_id
+      INNER JOIN roles r ON u.rol_id = r.id
       LEFT JOIN empleado_especialidad ee ON e.id = ee.empleado_id
       LEFT JOIN especialidades esp ON ee.especialidad_id = esp.id
-      WHERE e.activo = 1 AND u.activo = 1
-        AND es.servicio_id IN (${serviciosArray.map(() => '?').join(',')})
+      WHERE e.activo = 1 
+        AND u.activo = 1
+        AND u.rol_id = 2  -- filtro solo empleados
       GROUP BY e.id
       ORDER BY u.nombre, u.apellido
     `;
-    
-    const empleados = await query(sql, serviciosArray);
-    
+
+    const empleados = await query(sql);
+
     console.log('🔍 [reservacionController.getEmpleadosDisponibles] Empleados encontrados:', empleados.length);
-    
+
     res.status(200).json({
       success: true,
       count: empleados.length,
-      empleados: empleados
+      empleados
     });
   } catch (error) {
     console.error('❌ [reservacionController.getEmpleadosDisponibles] Error:', error);
@@ -119,7 +114,7 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
 
     // Determinar el día de la semana (0=Domingo, 1=Lunes, ..., 6=Sábado)
     const diaSemana = new Date(fecha).getDay();
-
+   
     let horariosDisponibles = [];
     if (diaSemana === 0) {
       // Domingo
@@ -185,128 +180,85 @@ exports.procesarReservacion = asyncHandler(async (req, res, next) => {
   try {
     const { empleadoId, servicios, fecha, horario, total } = req.body;
     let clienteId = req.usuario.cliente_id;
-    
+
     console.log('🔍 [reservacionController.procesarReservacion] Datos recibidos:', { empleadoId, servicios, fecha, horario, total });
-    
+
     if (!empleadoId || !servicios || !fecha || !horario || !total) {
       return next(new ErrorResponse('Todos los campos son requeridos', 400));
     }
-    
-    // Si el usuario no es cliente, verificar si ya existe un registro de cliente
+
     if (!clienteId) {
-      console.log('🔍 [reservacionController.procesarReservacion] Usuario no es cliente, verificando si existe registro...');
-      
-      try {
-        // Primero verificar si ya existe un cliente para este usuario
-        const clienteExistenteSql = 'SELECT id FROM clientes WHERE usuario_id = ?';
-        const [clienteExistente] = await query(clienteExistenteSql, [req.usuario.id]);
-        
-        if (clienteExistente) {
-          clienteId = clienteExistente.id;
-          console.log('✅ [reservacionController.procesarReservacion] Cliente existente encontrado con ID:', clienteId);
-        } else {
-          // Solo crear si no existe
-          console.log('🔍 [reservacionController.procesarReservacion] Creando nuevo registro de cliente...');
-          const insertClienteSql = `
-            INSERT INTO clientes (usuario_id, fecha_nacimiento, genero)
-            VALUES (?, NULL, NULL)
-          `;
-          
-          const result = await query(insertClienteSql, [req.usuario.id]);
-          clienteId = result.insertId;
-          console.log('✅ [reservacionController.procesarReservacion] Cliente creado con ID:', clienteId);
-        }
-      } catch (error) {
-        console.error('❌ [reservacionController.procesarReservacion] Error verificando/creando cliente:', error);
-        return next(new ErrorResponse('Error al verificar/crear registro de cliente', 500));
+      const clienteExistenteSql = 'SELECT id FROM clientes WHERE usuario_id = ?';
+      const [clienteExistente] = await query(clienteExistenteSql, [req.usuario.id]);
+
+      if (clienteExistente) {
+        clienteId = clienteExistente.id;
+      } else {
+        const insertClienteSql = `INSERT INTO clientes (usuario_id, fecha_nacimiento, genero) VALUES (?, NULL, NULL)`;
+        const result = await query(insertClienteSql, [req.usuario.id]);
+        clienteId = result.insertId;
       }
     }
-    
-    // Calcular hora de fin basada en la duración de los servicios
-    const duracionTotal = servicios.reduce((total, servicio) => {
-      return total + (servicio.duracion || 30) * servicio.cantidad;
+
+    const duracionTotal = servicios.reduce((totalDuracion, servicio) => {
+      return totalDuracion + ((servicio.duracion || 30) * servicio.cantidad);
     }, 0);
 
-    // Construir los valores datetime para inicio y fin
-    const fechaHoraInicio = `${fecha} ${horario}:00`;
-    const [hora, minuto] = horario.split(':');
-    const inicioDate = new Date(`${fecha}T${horario}:00`);
-    inicioDate.setMinutes(inicioDate.getMinutes() + duracionTotal);
-    const horaFinStr = inicioDate.toTimeString().slice(0, 5);
-    const fechaHoraFin = `${fecha} ${horaFinStr}:00`;
+    const { inicio: horaInicio } = horario;
 
-    // Crear la cita
+    // Crear objeto Date con zona horaria local (-05:00)
+    const inicio = new Date(`${fecha}T${horaInicio}:00-05:00`);
+    // Calcular fin sumando duración total en milisegundos
+    const fin = new Date(inicio.getTime() + duracionTotal * 60000);
+
+    // Convertir a formato 'YYYY-MM-DD HH:mm:ss' en UTC para la BD
+    const fechaHoraInicio = inicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaHoraFin = fin.toISOString().slice(0, 19).replace('T', ' ');
+
     const insertCitaSql = `
       INSERT INTO citas (cliente_id, empleado_id, fecha_hora_inicio, fecha_hora_fin, estado_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, 1, NOW(), NOW())
     `;
-    
     const resultadoCita = await query(insertCitaSql, [clienteId, empleadoId, fechaHoraInicio, fechaHoraFin]);
     const citaId = resultadoCita.insertId;
-    
-    console.log('✅ [reservacionController.procesarReservacion] Cita creada con ID:', citaId);
-    
-    // Crear el registro de pago
+
     const insertPagoSql = `
       INSERT INTO pagos (cita_id, monto_total, metodo_pago_id, estado_pago_id, created_at, updated_at)
       VALUES (?, ?, 1, 1, NOW(), NOW())
     `;
-    
     await query(insertPagoSql, [citaId, total]);
-    
-    console.log('✅ [reservacionController.procesarReservacion] Pago registrado para cita:', citaId);
-    
-    // Insertar detalles de la cita
+
     for (const servicio of servicios) {
-      // Obtener el precio del servicio desde la base de datos
       const precioServicioSql = 'SELECT precio FROM servicios WHERE id = ?';
       const [servicioData] = await query(precioServicioSql, [servicio.id]);
-      
-      if (!servicioData) {
-        console.error('❌ [reservacionController.procesarReservacion] Servicio no encontrado:', servicio.id);
-        continue;
-      }
-      
+
+      if (!servicioData) continue;
+
       const precioUnitario = servicioData.precio;
-      const subtotal = precioUnitario * servicio.cantidad;
-      
+
       const insertDetalleSql = `
         INSERT INTO cita_servicio (cita_id, servicio_id, precio_aplicado, descuento, notas)
         VALUES (?, ?, ?, 0.00, NULL)
       `;
-      
       await query(insertDetalleSql, [citaId, servicio.id, precioUnitario]);
-      
-      console.log(`✅ [reservacionController.procesarReservacion] Servicio ${servicio.id} agregado a cita ${citaId}`);
     }
-    
-    // Enviar notificaciones automáticamente
+
     try {
-      console.log('🔔 [reservacionController.procesarReservacion] Enviando notificaciones...');
       await notificacionService.enviarNotificacionesConfirmacion(citaId);
-      console.log('✅ [reservacionController.procesarReservacion] Notificaciones enviadas exitosamente');
-    } catch (notifError) {
-      console.error('⚠️ [reservacionController.procesarReservacion] Error enviando notificaciones:', notifError);
-      // No fallar la reservación si las notificaciones fallan
-    }
-    
+    } catch {}
+
     res.status(200).json({
       success: true,
       message: 'Reservación procesada exitosamente',
-      data: {
-        citaId,
-        fecha,
-        horaInicio: horario,
-        horaFin: horaFinStr,
-        total
-      }
+      data: { citaId, fecha, horaInicio, total }
     });
-    
   } catch (error) {
     console.error('❌ [reservacionController.procesarReservacion] Error:', error);
     return next(new ErrorResponse('Error al procesar la reservación', 500));
   }
 });
+
+
 
 /**
  * @desc    Obtener citas del cliente
@@ -316,12 +268,12 @@ exports.procesarReservacion = asyncHandler(async (req, res, next) => {
 exports.getMisCitas = asyncHandler(async (req, res, next) => {
   try {
     let clienteId = req.usuario.cliente_id;
-    
+
     // Si el usuario no es cliente, verificar si existe un registro
     if (!clienteId) {
       const clienteSql = 'SELECT id FROM clientes WHERE usuario_id = ?';
       const [cliente] = await query(clienteSql, [req.usuario.id]);
-      
+
       if (!cliente) {
         // Si no existe cliente, devolver array vacío
         return res.status(200).json({
@@ -330,28 +282,36 @@ exports.getMisCitas = asyncHandler(async (req, res, next) => {
           citas: []
         });
       }
-      
+
       clienteId = cliente.id;
     }
-    
+
     const sql = `
-      SELECT c.*, 
-             CONCAT(e.nombre, ' ', e.apellido) as empleado_nombre,
-             ec.nombre as estado_nombre,
-             ec.color as estado_color,
-             GROUP_CONCAT(s.nombre SEPARATOR ', ') as servicios
-      FROM citas c
-      INNER JOIN empleados e ON c.empleado_id = e.id
-      INNER JOIN estados_citas ec ON c.estado_id = ec.id
-      LEFT JOIN cita_servicio cs ON c.id = cs.cita_id
-      LEFT JOIN servicios s ON cs.servicio_id = s.id
-      WHERE c.cliente_id = ?
-      GROUP BY c.id
-      ORDER BY c.fecha_hora_inicio DESC
-    `;
-    
+SELECT
+  c.id,
+  c.cliente_id,
+  c.empleado_id,
+  DATE_FORMAT(CONVERT_TZ(c.fecha_hora_inicio, '+00:00', '-05:00'), '%Y-%m-%dT%H:%i:%s') AS fecha_hora_inicio,
+  DATE_FORMAT(CONVERT_TZ(c.fecha_hora_fin, '+00:00', '-05:00'), '%Y-%m-%dT%H:%i:%s') AS fecha_hora_fin,
+  CONCAT(u.nombre, ' ', u.apellido) AS empleado_nombre,
+  u.foto_perfil AS empleado_foto,
+  ec.nombre AS estado_nombre,
+  ec.color AS estado_color,
+  GROUP_CONCAT(s.nombre SEPARATOR ', ') AS servicios
+FROM citas c
+INNER JOIN empleados e ON c.empleado_id = e.id
+INNER JOIN usuarios u ON e.usuario_id = u.id
+INNER JOIN estados_citas ec ON c.estado_id = ec.id
+LEFT JOIN cita_servicio cs ON c.id = cs.cita_id
+LEFT JOIN servicios s ON cs.servicio_id = s.id
+WHERE c.cliente_id = ?
+GROUP BY c.id, c.cliente_id, c.empleado_id, fecha_hora_inicio, fecha_hora_fin, empleado_nombre, empleado_foto, estado_nombre, estado_color
+ORDER BY fecha_hora_inicio DESC;
+`;
+
+
     const citas = await query(sql, [clienteId]);
-    
+
     res.status(200).json({
       success: true,
       count: citas.length,
