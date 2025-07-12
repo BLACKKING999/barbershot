@@ -53,10 +53,11 @@ exports.getServiciosDisponibles = asyncHandler(async (req, res, next) => {
  */
 exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
   try {
-    // Si quieres, puedes mantener la lógica para filtrar por servicios
-    // pero aquí solo filtro por rol 2
+    const { fecha, hora_inicio, hora_fin } = req.query;
+    
+    console.log('🔍 [reservacionController.getEmpleadosDisponibles] Parámetros:', { fecha, hora_inicio, hora_fin });
 
-    const sql = `
+    let sql = `
       SELECT DISTINCT 
         e.id,
         u.nombre,
@@ -77,12 +78,40 @@ exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
       LEFT JOIN especialidades esp ON ee.especialidad_id = esp.id
       WHERE e.activo = 1 
         AND u.activo = 1
-        AND u.rol_id = 2  -- filtro solo empleados
+        AND u.rol_id = 2
+    `;
+
+    // Si se proporcionan fecha y horario, filtrar empleados ocupados
+    if (fecha && hora_inicio && hora_fin) {
+      sql += `
+        AND e.id NOT IN (
+          SELECT c.empleado_id
+          FROM citas c
+          WHERE DATE(CONVERT_TZ(c.fecha_hora_inicio, '+00:00', '-05:00')) = ?
+            AND c.estado_id NOT IN (
+              SELECT id FROM estados_citas 
+              WHERE nombre IN ('Cancelada', 'No Asistió')
+            )
+            AND (
+              (TIME(CONVERT_TZ(c.fecha_hora_inicio, '+00:00', '-05:00')) < ? AND TIME(CONVERT_TZ(c.fecha_hora_fin, '+00:00', '-05:00')) > ?)
+              OR (TIME(CONVERT_TZ(c.fecha_hora_inicio, '+00:00', '-05:00')) < ? AND TIME(CONVERT_TZ(c.fecha_hora_fin, '+00:00', '-05:00')) > ?)
+              OR (TIME(CONVERT_TZ(c.fecha_hora_inicio, '+00:00', '-05:00')) >= ? AND TIME(CONVERT_TZ(c.fecha_hora_fin, '+00:00', '-05:00')) <= ?)
+            )
+        )
+      `;
+    }
+
+    sql += `
       GROUP BY e.id
       ORDER BY u.nombre, u.apellido
     `;
 
-    const empleados = await query(sql);
+    let empleados;
+    if (fecha && hora_inicio && hora_fin) {
+      empleados = await query(sql, [fecha, hora_fin, hora_inicio, hora_fin, hora_inicio, hora_inicio, hora_fin]);
+    } else {
+      empleados = await query(sql);
+    }
 
     console.log('🔍 [reservacionController.getEmpleadosDisponibles] Empleados encontrados:', empleados.length);
 
@@ -151,12 +180,40 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
       ];
     }
 
-    // Filtrar horarios ocupados (aquí puedes implementar la lógica real)
-    const horariosOcupados = [];
+    // Obtener horarios ocupados del empleado en la fecha específica
+    const sqlHorariosOcupados = `
+      SELECT 
+        TIME(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) as hora_inicio,
+        TIME(CONVERT_TZ(fecha_hora_fin, '+00:00', '-05:00')) as hora_fin
+      FROM citas
+      WHERE empleado_id = ? 
+        AND DATE(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) = ?
+        AND estado_id NOT IN (
+          SELECT id FROM estados_citas 
+          WHERE nombre IN ('Cancelada', 'No Asistió')
+        )
+    `;
     
-    const horariosLibres = horariosDisponibles.filter(horario => 
-      !horariosOcupados.some(ocupado => ocupado.inicio === horario.inicio && ocupado.fin === horario.fin)
-    );
+    const horariosOcupados = await query(sqlHorariosOcupados, [empleadoId, fecha]);
+    
+    console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios ocupados:', horariosOcupados);
+    
+    // Filtrar horarios disponibles excluyendo los ocupados
+    const horariosLibres = horariosDisponibles.filter(horario => {
+      return !horariosOcupados.some(ocupado => {
+        const horaInicioHorario = horario.inicio;
+        const horaFinHorario = horario.fin;
+        const horaInicioOcupado = ocupado.hora_inicio;
+        const horaFinOcupado = ocupado.hora_fin;
+        
+        // Verificar si hay conflicto de horarios
+        return (
+          (horaInicioHorario < horaFinOcupado && horaFinHorario > horaInicioOcupado) ||
+          (horaInicioHorario >= horaInicioOcupado && horaFinHorario <= horaFinOcupado) ||
+          (horaInicioHorario <= horaInicioOcupado && horaFinHorario >= horaFinOcupado)
+        );
+      });
+    });
     
     console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios disponibles:', horariosLibres.length);
     
@@ -215,6 +272,41 @@ exports.procesarReservacion = asyncHandler(async (req, res, next) => {
     const fechaHoraInicio = inicio.toISOString().slice(0, 19).replace('T', ' ');
     const fechaHoraFin = fin.toISOString().slice(0, 19).replace('T', ' ');
 
+    // Verificar disponibilidad antes de crear la cita
+    const verificarDisponibilidadSql = `
+      SELECT COUNT(*) as conflictos
+      FROM citas
+      WHERE empleado_id = ? 
+        AND DATE(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) = ?
+        AND estado_id NOT IN (
+          SELECT id FROM estados_citas 
+          WHERE nombre IN ('Cancelada', 'No Asistió')
+        )
+        AND (
+          (TIME(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) < ? AND TIME(CONVERT_TZ(fecha_hora_fin, '+00:00', '-05:00')) > ?)
+          OR (TIME(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) < ? AND TIME(CONVERT_TZ(fecha_hora_fin, '+00:00', '-05:00')) > ?)
+          OR (TIME(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) >= ? AND TIME(CONVERT_TZ(fecha_hora_fin, '+00:00', '-05:00')) <= ?)
+        )
+    `;
+    
+    const horaInicioFormateada = horaInicio + ':00';
+    const horaFinFormateada = fin.toISOString().slice(11, 19);
+    
+    const [verificacion] = await query(verificarDisponibilidadSql, [
+      empleadoId, 
+      fecha, 
+      horaFinFormateada, 
+      horaInicioFormateada,
+      horaFinFormateada, 
+      horaInicioFormateada,
+      horaInicioFormateada, 
+      horaFinFormateada
+    ]);
+    
+    if (verificacion.conflictos > 0) {
+      return next(new ErrorResponse('El empleado no está disponible en ese horario', 400));
+    }
+
     const insertCitaSql = `
       INSERT INTO citas (cliente_id, empleado_id, fecha_hora_inicio, fecha_hora_fin, estado_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, 1, NOW(), NOW())
@@ -257,8 +349,6 @@ exports.procesarReservacion = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Error al procesar la reservación', 500));
   }
 });
-
-
 
 /**
  * @desc    Obtener citas del cliente
@@ -308,7 +398,6 @@ WHERE c.cliente_id = ?
 GROUP BY c.id, c.cliente_id, c.empleado_id, fecha_hora_inicio, fecha_hora_fin, empleado_nombre, empleado_foto, estado_nombre, estado_color
 ORDER BY fecha_hora_inicio DESC;
 `;
-
 
     const citas = await query(sql, [clienteId]);
 
@@ -378,4 +467,4 @@ exports.cancelarCita = asyncHandler(async (req, res, next) => {
     console.error('❌ [reservacionController.cancelarCita] Error:', error);
     next(new ErrorResponse('Error al cancelar la cita', 500));
   }
-});   
+});
