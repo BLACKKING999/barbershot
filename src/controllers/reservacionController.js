@@ -134,19 +134,23 @@ exports.getEmpleadosDisponibles = asyncHandler(async (req, res, next) => {
 exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
   try {
     const { empleadoId, fecha, servicios } = req.query;
-    
+
     console.log('🔍 [reservacionController.getHorariosDisponibles] Parámetros:', { empleadoId, fecha, servicios });
-    
+
     if (!empleadoId || !fecha || !servicios) {
       return next(new ErrorResponse('empleadoId, fecha y servicios son requeridos', 400));
     }
 
-    // Determinar el día de la semana (0=Domingo, 1=Lunes, ..., 6=Sábado)
-    const diaSemana = new Date(fecha).getDay();
-   
+    // Convertir empleadoId a entero para evitar errores en la consulta SQL
+    const empleadoIdInt = parseInt(empleadoId);
+    console.log('👨‍🔧 Consultando horarios para empleado ID:', empleadoIdInt);
+
+    const [year, month, day] = fecha.split("-").map(Number);
+    const fechaLocal = new Date(year, month - 1, day);
+    const diaSemana = fechaLocal.getDay();
+
     let horariosDisponibles = [];
     if (diaSemana === 0) {
-      // Domingo
       horariosDisponibles = [
         { inicio: '09:30', fin: '10:00' },
         { inicio: '10:00', fin: '10:30' },
@@ -159,7 +163,6 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
         { inicio: '13:30', fin: '14:00' }
       ];
     } else {
-      // Lunes a Sábado
       horariosDisponibles = [
         { inicio: '09:15', fin: '09:45' },
         { inicio: '09:45', fin: '10:15' },
@@ -180,7 +183,6 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
       ];
     }
 
-    // Obtener horarios ocupados del empleado en la fecha específica
     const sqlHorariosOcupados = `
       SELECT 
         TIME(CONVERT_TZ(fecha_hora_inicio, '+00:00', '-05:00')) as hora_inicio,
@@ -193,40 +195,46 @@ exports.getHorariosDisponibles = asyncHandler(async (req, res, next) => {
           WHERE nombre IN ('Cancelada', 'No Asistió')
         )
     `;
-    
-    const horariosOcupados = await query(sqlHorariosOcupados, [empleadoId, fecha]);
-    
+
+    const horariosOcupados = await query(sqlHorariosOcupados, [empleadoIdInt, fecha]);
+
     console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios ocupados:', horariosOcupados);
-    
-    // Filtrar horarios disponibles excluyendo los ocupados
+
+    // Función para convertir 'HH:MM' a minutos totales para comparación numérica
+    const horaATotalMinutos = (hora) => {
+      const [h, m] = hora.split(":").map(Number);
+      return h * 60 + m;
+    };
+
     const horariosLibres = horariosDisponibles.filter(horario => {
+      const inicioHorario = horaATotalMinutos(horario.inicio);
+      const finHorario = horaATotalMinutos(horario.fin);
+
+      // Si algún horario ocupado se solapa, filtramos fuera ese horario disponible
       return !horariosOcupados.some(ocupado => {
-        const horaInicioHorario = horario.inicio;
-        const horaFinHorario = horario.fin;
-        const horaInicioOcupado = ocupado.hora_inicio;
-        const horaFinOcupado = ocupado.hora_fin;
-        
-        // Verificar si hay conflicto de horarios
+        const inicioOcupado = horaATotalMinutos(ocupado.hora_inicio);
+        const finOcupado = horaATotalMinutos(ocupado.hora_fin);
+
         return (
-          (horaInicioHorario < horaFinOcupado && horaFinHorario > horaInicioOcupado) ||
-          (horaInicioHorario >= horaInicioOcupado && horaFinHorario <= horaFinOcupado) ||
-          (horaInicioHorario <= horaInicioOcupado && horaFinHorario >= horaFinOcupado)
+          inicioHorario < finOcupado && finHorario > inicioOcupado
         );
       });
     });
-    
-    console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios disponibles:', horariosLibres.length);
-    
+
+    console.log('🔍 [reservacionController.getHorariosDisponibles] Horarios disponibles filtrados:', horariosLibres);
+
     res.status(200).json({
       success: true,
       count: horariosLibres.length,
       horarios: horariosLibres
     });
+
   } catch (error) {
     console.error('❌ [reservacionController.getHorariosDisponibles] Error:', error);
     next(new ErrorResponse('Error al obtener horarios disponibles', 500));
   }
 });
+
 
 /**
  * @desc    Procesar pago y crear cita
