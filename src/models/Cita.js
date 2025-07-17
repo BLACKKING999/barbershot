@@ -344,10 +344,10 @@ class Cita {
         'recordatorio_push_enviado', 'sincronizado_calendar', 'event_id_calendar',
         'meet_link', 'origen', 'cancelado_por', 'motivo_cancelacion'
       ];
-
+  
       const camposActualizar = [];
       const valores = [];
-
+  
       // Filtrar solo campos permitidos
       for (const campo of camposPermitidos) {
         if (citaData[campo] !== undefined) {
@@ -355,21 +355,29 @@ class Cita {
           valores.push(citaData[campo]);
         }
       }
-
+  
       if (camposActualizar.length === 0) {
         throw new Error('No hay campos válidos para actualizar');
       }
-
+  
       valores.push(id);
       const sql = `UPDATE citas SET ${camposActualizar.join(', ')} WHERE id = ?`;
-      
+  
       const result = await query(sql, valores);
-      return result.affectedRows > 0;
+  
+      if (result.affectedRows === 0) {
+        throw new Error('Cita no encontrada o no actualizada');
+      }
+  
+      // Retornar la cita actualizada
+      return await this.obtenerPorId(id);
+  
     } catch (error) {
       console.error('Error actualizando cita:', error);
       throw error;
     }
   }
+  
 
   /**
    * Cancelar cita
@@ -601,7 +609,7 @@ class Cita {
   }
 
   /**
-   * Obtener servicios de una cita
+   * ObtenerTodas servicios de una cita
    * @param {number} cita_id - ID de la cita
    * @returns {Array} - Lista de servicios de la cita
    */
@@ -647,6 +655,51 @@ class Cita {
       throw error;
     }
   }
+
+
+
+ /**
+   * Obtener todos los estados de citas
+   * @returns {Array} - Lista de estados
+   */
+ static async obtenerEstadosCitas() {
+  try {
+    const sql = 'SELECT id, nombre, descripcion, color FROM estados_citas ORDER BY id';
+    const estados = await query(sql);
+    return estados;
+  } catch (error) {
+    console.error('Error obteniendo estados de citas:', error);
+    throw error;
+  }
+}
+
+
+
+/**
+ * Cambiar el estado de una cita
+ * @param {number} id - ID de la cita
+ * @param {number} estado_id - Nuevo ID del estado
+ * @returns {Object} - Cita actualizada
+ */
+static async cambiarEstado(id, estado_id) {
+  try {
+    const sql = `UPDATE citas SET estado_id = ? WHERE id = ?`;
+    const result = await query(sql, [estado_id, id]);
+
+    if (result.affectedRows === 0) {
+      throw new Error('Cita no encontrada o no actualizada');
+    }
+
+    return await this.obtenerPorId(id);
+  } catch (error) {
+    console.error('Error cambiando estado de la cita:', error);
+    throw error;
+  }
+}
+
+
+
+
 }
 
 module.exports = Cita; 

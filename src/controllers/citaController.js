@@ -163,22 +163,38 @@ exports.getCitasPorEstado = asyncHandler(async (req, res, next) => {
 // @route   PATCH /api/citas/:id/estado
 // @access  Private (Admin, Dueño, Empleado)
 exports.cambiarEstadoCita = asyncHandler(async (req, res, next) => {
+    console.log('📦 BODY recibido en /estado:', req.body);
+
     try {
-        const { estado } = req.body;
-        const cita = await Cita.cambiarEstado(req.params.id, estado);
+        const estadoId = req.body.estado_id;
+        console.log('🔍 estado_id recibido:', estadoId);
+
+        // Validar que estado_id exista y sea un número válido
+        if (!estadoId || isNaN(Number(estadoId))) {
+            const msg = "El campo 'estado_id' es requerido y debe ser un número válido.";
+            console.error('❌ Validación:', msg);
+            return next(new ErrorResponse(msg, 400));
+        }
+
+        // Cambiar estado en la base de datos
+        const cita = await Cita.cambiarEstado(req.params.id, estadoId);
+
+        if (!cita) {
+            return next(new ErrorResponse('Cita no encontrada', 404));
+        }
+
         res.status(200).json({
             success: true,
             mensaje: 'Estado de cita actualizado exitosamente',
             data: cita
         });
     } catch (error) {
-        if (error.message.includes('no encontrada')) {
-            next(new ErrorResponse(error.message, 404));
-        } else {
-            next(new ErrorResponse(error.message, 400));
-        }
+        console.error('❌ Error al cambiar estado:', error.message);
+        next(new ErrorResponse(error.message, 500));
     }
 });
+
+  
 
 // @desc    Obtener horarios disponibles
 // @route   GET /api/citas/horarios-disponibles
@@ -228,3 +244,24 @@ exports.getStatsCitas = asyncHandler(async (req, res, next) => {
         next(new ErrorResponse(error.message, 500));
     }
 }); 
+
+
+
+exports.obtenerEstadosCitas = async (req, res) => {
+    try {
+      const estados = await Cita.obtenerEstadosCitas();
+      res.status(200).json({ success: true, data: estados });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Error al obtener estados' });
+    }
+  };
+
+  async function probarEstados() {
+    try {
+      const estados = await Cita.obtenerEstadosCitas();
+      console.log('Estados de citas:', estados);
+    } catch (error) {
+      console.error('Error en prueba:', error);
+    }
+  }
+  probarEstados();
